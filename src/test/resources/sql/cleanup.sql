@@ -1,0 +1,2 @@
+-- Placeholder cleanup script for integration tests.
+-- Add TRUNCATE statements as test tables are introduced.
