@@ -37,3 +37,5 @@ postgres-data/
 
 # Mac
 .DS_Store
+# Local environment
+.env

@@ -1,0 +1,14 @@
+.git
+.gitignore
+.idea
+.vscode
+.DS_Store
+
+HELP.md
+README*
+
+target
+postgres-data
+
+mvnw
+mvnw.cmd
