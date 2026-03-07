@@ -25,15 +25,3 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_users_username ON users (username);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS ix_users_deleted_date ON users (deleted_date);
-
-CREATE TABLE IF NOT EXISTS allocations (
-    id UUID PRIMARY KEY,
-    student_id UUID NOT NULL REFERENCES users(id),
-    tutor_id UUID NOT NULL REFERENCES users(id),
-    allocated_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_date TIMESTAMPTZ
-);
-
-CREATE INDEX IF NOT EXISTS ix_allocations_student_id ON allocations (student_id);
-CREATE INDEX IF NOT EXISTS ix_allocations_tutor_id ON allocations (tutor_id);
-CREATE INDEX IF NOT EXISTS ix_allocations_deleted_date ON allocations (deleted_date);

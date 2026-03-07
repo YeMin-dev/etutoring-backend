@@ -13,12 +13,15 @@ import com.a9.etutoring.exception.UnauthorizedException;
 import com.a9.etutoring.repository.TutorAllocationRepository;
 import com.a9.etutoring.repository.UserRepository;
 import com.a9.etutoring.security.UserPrincipal;
+import com.a9.etutoring.service.EmailService;
 import com.a9.etutoring.service.TutorAllocationService;
 import com.a9.etutoring.util.SecurityContextUtil;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -29,13 +32,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class TutorAllocationServiceImpl implements TutorAllocationService {
 
+    private static final Logger logger = LoggerFactory.getLogger(TutorAllocationServiceImpl.class);
+
     private final UserRepository userRepository;
     private final TutorAllocationRepository tutorAllocationRepository;
+    private final EmailService emailService;
 
     public TutorAllocationServiceImpl(UserRepository userRepository,
-                                      TutorAllocationRepository tutorAllocationRepository) {
+                                      TutorAllocationRepository tutorAllocationRepository,
+                                      EmailService emailService) {
         this.userRepository = userRepository;
         this.tutorAllocationRepository = tutorAllocationRepository;
+        this.emailService = emailService;
     }
 
     @Override
@@ -49,7 +57,9 @@ public class TutorAllocationServiceImpl implements TutorAllocationService {
         checkScheduleOverlap(request.tutorUserId(), request.scheduleStart(), request.scheduleEnd());
         User allocatedBy = findActiveUser(admin.getId());
         TutorAllocation allocation = createAllocation(student, tutor, allocatedBy, request);
-        return toResponse(tutorAllocationRepository.save(allocation));
+        TutorAllocation saved = tutorAllocationRepository.save(allocation);
+        sendAllocationEmails(student, tutor);
+        return toResponse(saved);
     }
 
     @Override
@@ -196,5 +206,50 @@ public class TutorAllocationServiceImpl implements TutorAllocationService {
             a.getScheduleStart(),
             a.getScheduleEnd()
         );
+    }
+
+    private void sendAllocationEmails(User student, User tutor) {
+        String studentFullName = buildFullName(student);
+        String tutorFullName = buildFullName(tutor);
+        logger.info("Sending allocation emails: studentId={}, tutorId={}", student.getId(), tutor.getId());
+        emailService.sendEmail(student.getEmail(),
+            "Personal Tutor Allocation – eTutoring",
+            buildStudentEmailBody(studentFullName, tutorFullName));
+        emailService.sendEmail(tutor.getEmail(),
+            "New Student Assigned – eTutoring",
+            buildTutorEmailBody(tutorFullName, studentFullName));
+    }
+
+    private String buildFullName(User user) {
+        if (user.getFirstName() != null && !user.getFirstName().isBlank()
+            && user.getLastName() != null && !user.getLastName().isBlank()) {
+            return user.getFirstName() + " " + user.getLastName();
+        }
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+        return user.getEmail();
+    }
+
+    private String buildStudentEmailBody(String studentFullName, String tutorFullName) {
+        return String.format(
+            "Hello %s,\n\n" +
+            "You have been assigned a personal tutor:\n" +
+            "Tutor: %s\n\n" +
+            "Please log in to eTutoring to send messages, arrange meetings, and upload documents.\n\n" +
+            "Best regards,\n" +
+            "eTutoring System",
+            studentFullName, tutorFullName);
+    }
+
+    private String buildTutorEmailBody(String tutorFullName, String studentFullName) {
+        return String.format(
+            "Hello %s,\n\n" +
+            "You have been assigned a new student:\n" +
+            "Student: %s\n\n" +
+            "Please log in to eTutoring to view their dashboard and start communication.\n\n" +
+            "Best regards,\n" +
+            "eTutoring System",
+            tutorFullName, studentFullName);
     }
 }

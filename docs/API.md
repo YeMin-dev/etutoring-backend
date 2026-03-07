@@ -252,7 +252,7 @@ Common errors:
 ## AdminTutorAllocationController
 Base path: `/api/admin`
 
-All endpoints require **ADMIN** role. Used to allocate students to tutors (single or bulk). `scheduleStart` and `scheduleEnd` are required; the API rejects the request if the tutor already has an active allocation whose schedule overlaps.
+All endpoints require **ADMIN** role. Used to allocate students to tutors (single or bulk). `scheduleStart` and `scheduleEnd` are required; the API rejects the request if the tutor already has an active allocation whose schedule overlaps. Creating an allocation (single or bulk) triggers email notifications to the student and tutor.
 
 ### GET `/api/admin/allocations`
 List allocations with pagination and optional search by tutor or student name. Returns **only active allocations** (allocations that have not been undone; i.e. `endedDate` is null). Ended allocations are excluded from the list.
