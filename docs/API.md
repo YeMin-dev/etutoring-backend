@@ -17,6 +17,8 @@ This document covers all public API controllers except `RoleProtectedController`
 - JWT bearer auth is required for all endpoints except:
   - `POST /api/auth/signup`
   - `POST /api/auth/login`
+  - `POST /api/auth/forgot-password`
+  - `POST /api/auth/reset-password`
 
 Add header for protected endpoints:
 
@@ -103,6 +105,49 @@ Common errors:
 - `401 AUTHENTICATION_FAILED` with message like:
   - `User <username> does not exist. Please sign up.`
 - `400 VALIDATION_ERROR`
+
+### POST `/api/auth/forgot-password`
+Request a password reset link for the given email. If an account exists, an email with a reset link is sent; the response is always the same so that the endpoint does not reveal whether the email is registered.
+
+- Auth: Public
+- Status: `200 OK`
+
+Request body:
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+Success: No response body. A reset email is sent when the email is associated with an active account. The link in the email expires in 15 minutes.
+
+Common errors:
+- `400 VALIDATION_ERROR` (e.g. invalid or missing email)
+
+### POST `/api/auth/reset-password`
+Set a new password using a valid reset token (from the forgot-password email link).
+
+- Auth: Public
+- Status: `200 OK`
+
+Request body:
+
+```json
+{
+  "token": "<token-from-email>",
+  "newPassword": "NewSecurePassword123"
+}
+```
+
+Notes:
+- `newPassword` must be at least 8 characters.
+
+Success: No response body. The user can then log in with the new password.
+
+Common errors:
+- `400 VALIDATION_ERROR` (e.g. token blank, password too short)
+- `400 INVALID_OR_EXPIRED_TOKEN` — token not found or expired
 
 ---
 
@@ -475,6 +520,7 @@ Common errors:
 - `ALLOCATION_ALREADY_ENDED` -> `400` (undo: allocation already ended)
 - `CANNOT_UPDATE_ENDED_ALLOCATION` -> `400` (PUT: cannot update ended allocation)
 - `NO_UPDATE_FIELDS` -> `400` (PUT: at least one field required)
+- `INVALID_OR_EXPIRED_TOKEN` -> `400` (reset-password: token invalid or expired)
 - `DUPLICATE_USERNAME` -> `409`
 - `DUPLICATE_EMAIL` -> `409`
 - `INTERNAL_SERVER_ERROR` -> `500`

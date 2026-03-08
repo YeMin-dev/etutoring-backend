@@ -1,6 +1,7 @@
 package com.a9.etutoring.repository;
 
 import com.a9.etutoring.domain.model.User;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +18,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByUsernameAndDeletedDateIsNull(String username);
 
     Optional<User> findByEmailAndDeletedDateIsNull(String email);
+
+    Optional<User> findByPasswordResetTokenAndPasswordResetExpiresAtAfterAndDeletedDateIsNull(String token, Instant expiresAtAfter);
 
     List<User> findAllByDeletedDateIsNull();
 }

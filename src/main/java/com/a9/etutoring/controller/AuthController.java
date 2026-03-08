@@ -3,6 +3,8 @@ package com.a9.etutoring.controller;
 import com.a9.etutoring.domain.dto.auth.AuthLoginRequest;
 import com.a9.etutoring.domain.dto.auth.AuthResponse;
 import com.a9.etutoring.domain.dto.auth.AuthSignupRequest;
+import com.a9.etutoring.domain.dto.auth.ForgotPasswordRequest;
+import com.a9.etutoring.domain.dto.auth.ResetPasswordRequest;
 import com.a9.etutoring.service.auth.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -31,5 +33,15 @@ public class AuthController {
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody AuthLoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/forgot-password")
+    public void forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+    }
+
+    @PostMapping("/reset-password")
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
     }
 }

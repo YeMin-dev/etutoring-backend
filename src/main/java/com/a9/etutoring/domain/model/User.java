@@ -58,6 +58,12 @@ public class User {
     @Column(name = "deleted_date")
     private Instant deletedDate;
 
+    @Column(name = "password_reset_token", length = 255)
+    private String passwordResetToken;
+
+    @Column(name = "password_reset_expires_at")
+    private Instant passwordResetExpiresAt;
+
     public UUID getId() {
         return id;
     }
@@ -160,5 +166,21 @@ public class User {
 
     public void setDeletedDate(Instant deletedDate) {
         this.deletedDate = deletedDate;
+    }
+
+    public String getPasswordResetToken() {
+        return passwordResetToken;
+    }
+
+    public void setPasswordResetToken(String passwordResetToken) {
+        this.passwordResetToken = passwordResetToken;
+    }
+
+    public Instant getPasswordResetExpiresAt() {
+        return passwordResetExpiresAt;
+    }
+
+    public void setPasswordResetExpiresAt(Instant passwordResetExpiresAt) {
+        this.passwordResetExpiresAt = passwordResetExpiresAt;
     }
 }
