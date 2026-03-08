@@ -1,6 +1,6 @@
 # API Documentation
 
-This document covers all public API controllers except `RoleProtectedController`.
+This document covers all public API controllers.
 
 ## Base URL
 - `http://localhost:8080`
@@ -180,19 +180,58 @@ Common errors:
 
 ---
 
-## UserController
-Base path: `/api/v1/users`
+## AdminUserController (User management)
+Base path: `/api/admin`
 
-> `POST /api/v1/users` is intentionally not available. User creation is handled via signup.
+All endpoints below require **ADMIN** role. List and CRUD operations on users are admin-only. Students and tutors are listed via separate paged endpoints.
 
-### GET `/api/v1/users/{id}`
-Get user by ID (non-deleted only).
+### GET `/api/admin/users/students`
+Paged list of users with role **STUDENT** (non-deleted only).
 
-- Auth: Required
+- Auth: Required (ADMIN)
 - Status: `200 OK`
 
-Path param:
-- `id` (UUID)
+Query params:
+- `page` (optional): 0-based page index; default `0`.
+- `size` (optional): Page size; default `20`, max `100`.
+
+Success response: JSON object with pagination metadata and `content` array of user objects (same shape as single user below).
+
+Common errors:
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### GET `/api/admin/users/tutors`
+Paged list of users with role **TUTOR** (non-deleted only).
+
+- Auth: Required (ADMIN)
+- Status: `200 OK`
+
+Query params: same as `GET /api/admin/users/students`.
+
+Success response: same paginated shape as students.
+
+Common errors:
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### GET `/api/admin/admin-user`
+Get the single admin user (non-deleted). At most one admin user exists in the system.
+
+- Auth: Required (ADMIN)
+- Status: `200 OK`
+
+Success response: same shape as `GET /api/admin/users/{id}` (single user object).
+
+Common errors:
+- `404 ADMIN_NOT_FOUND` (no admin user exists)
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### GET `/api/admin/users/{id}`
+Get one user by ID (non-deleted only).
+
+- Auth: Required (ADMIN)
+- Status: `200 OK`
+
+Path param: `id` (UUID)
 
 Success response:
 
@@ -214,83 +253,72 @@ Success response:
 
 Common errors:
 - `404 USER_NOT_FOUND`
-- `401 UNAUTHORIZED`
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
-### GET `/api/v1/users`
-List users (non-deleted only).
+### POST `/api/admin/users`
+Create a new user (admin only).
 
-- Auth: Required
-- Status: `200 OK`
+- Auth: Required (ADMIN)
+- Status: `201 Created`
 
-Success response:
-
-```json
-[
-  {
-    "id": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
-    "role": "STUDENT",
-    "username": "student1",
-    "firstName": "Stu",
-    "lastName": "Dent",
-    "email": "student1@example.com",
-    "isActive": true,
-    "isLocked": false,
-    "createdDate": "02/03/2026 08:30",
-    "updatedDate": "02/03/2026 09:10",
-    "lastLoginDate": "02/03/2026 10:05"
-  }
-]
-```
-
-Common errors:
-- `401 UNAUTHORIZED`
-
-### PUT `/api/v1/users/{id}`
-Update user fields.
-
-- Auth: Required
-- Status: `200 OK`
-
-Path param:
-- `id` (UUID)
-
-Request body (all fields optional):
+Request body:
 
 ```json
 {
-  "username": "student1",
-  "firstName": "Stu",
-  "lastName": "Dent",
-  "email": "student1@example.com",
-  "password": "NewPassword123",
-  "role": "STUDENT",
+  "username": "tutor1",
+  "firstName": "Tom",
+  "lastName": "Tutor",
+  "email": "tutor1@example.com",
+  "password": "Password123",
+  "role": "TUTOR",
   "isActive": true,
   "isLocked": false
 }
 ```
 
-Success response:
-- Same shape as `GET /api/v1/users/{id}`.
+- `role` is required (`ADMIN`, `TUTOR`, or `STUDENT`). `isActive` and `isLocked` are optional (default true and false).
+- Only one admin user is allowed: creating with `role: ADMIN` fails if an admin already exists.
+
+Success response: same shape as `GET /api/admin/users/{id}`.
 
 Common errors:
 - `400 VALIDATION_ERROR`
+- `400 ONLY_ONE_ADMIN_ALLOWED` (creating with role ADMIN when an admin already exists)
+- `409 DUPLICATE_USERNAME`
+- `409 DUPLICATE_EMAIL`
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### PUT `/api/admin/users/{id}`
+Update user fields.
+
+- Auth: Required (ADMIN)
+- Status: `200 OK`
+
+Path param: `id` (UUID)
+
+Request body (all fields optional): same as before (username, firstName, lastName, email, password, role, isActive, isLocked). Only one admin is allowed: updating a user's role to ADMIN fails if another admin already exists.
+
+Success response: same shape as `GET /api/admin/users/{id}`.
+
+Common errors:
+- `400 VALIDATION_ERROR`
+- `400 ONLY_ONE_ADMIN_ALLOWED` (setting role to ADMIN when another admin already exists)
 - `404 USER_NOT_FOUND`
 - `409 DUPLICATE_USERNAME`
 - `409 DUPLICATE_EMAIL`
-- `401 UNAUTHORIZED`
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
-### DELETE `/api/v1/users/{id}`
-Soft delete user (`deleted_date` is set; row is not physically removed).
+### DELETE `/api/admin/users/{id}`
+Soft delete user (`deleted_date` is set).
 
-- Auth: Required
+- Auth: Required (ADMIN)
 - Status: `204 No Content`
 
-Path param:
-- `id` (UUID)
+Path param: `id` (UUID)
 
 Common errors:
 - `404 USER_NOT_FOUND`
-- `401 UNAUTHORIZED`
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ---
 
@@ -516,6 +544,8 @@ Common errors:
 - `AUTHENTICATION_FAILED` -> `401`
 - `UNAUTHORIZED` -> `401`
 - `USER_NOT_FOUND` -> `404`
+- `ADMIN_NOT_FOUND` -> `404` (GET admin-user: no admin user exists)
+- `ONLY_ONE_ADMIN_ALLOWED` -> `400` (create/update user with role ADMIN when an admin already exists)
 - `ALLOCATION_NOT_FOUND` -> `404`
 - `ALLOCATION_ALREADY_ENDED` -> `400` (undo: allocation already ended)
 - `CANNOT_UPDATE_ENDED_ALLOCATION` -> `400` (PUT: cannot update ended allocation)
