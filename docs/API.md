@@ -17,6 +17,8 @@ This document covers all public API controllers except `RoleProtectedController`
 - JWT bearer auth is required for all endpoints except:
   - `POST /api/auth/signup`
   - `POST /api/auth/login`
+  - `POST /api/auth/forgot-password`
+  - `POST /api/auth/reset-password`
 
 Add header for protected endpoints:
 
@@ -103,6 +105,49 @@ Common errors:
 - `401 AUTHENTICATION_FAILED` with message like:
   - `User <username> does not exist. Please sign up.`
 - `400 VALIDATION_ERROR`
+
+### POST `/api/auth/forgot-password`
+Request a password reset link for the given email. If an account exists, an email with a reset link is sent; the response is always the same so that the endpoint does not reveal whether the email is registered.
+
+- Auth: Public
+- Status: `200 OK`
+
+Request body:
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+Success: No response body. A reset email is sent when the email is associated with an active account. The link in the email expires in 15 minutes.
+
+Common errors:
+- `400 VALIDATION_ERROR` (e.g. invalid or missing email)
+
+### POST `/api/auth/reset-password`
+Set a new password using a valid reset token (from the forgot-password email link).
+
+- Auth: Public
+- Status: `200 OK`
+
+Request body:
+
+```json
+{
+  "token": "<token-from-email>",
+  "newPassword": "NewSecurePassword123"
+}
+```
+
+Notes:
+- `newPassword` must be at least 8 characters.
+
+Success: No response body. The user can then log in with the new password.
+
+Common errors:
+- `400 VALIDATION_ERROR` (e.g. token blank, password too short)
+- `400 INVALID_OR_EXPIRED_TOKEN` — token not found or expired
 
 ---
 
@@ -249,12 +294,233 @@ Common errors:
 
 ---
 
+## AdminTutorAllocationController
+Base path: `/api/admin`
+
+All endpoints require **ADMIN** role. Used to allocate students to tutors (single or bulk). `scheduleStart` and `scheduleEnd` are required; the API rejects the request if the tutor already has an active allocation whose schedule overlaps. Creating an allocation (single or bulk) triggers email notifications to the student and tutor.
+
+### GET `/api/admin/allocations`
+List allocations with pagination and optional search by tutor or student name. Returns **only active allocations** (allocations that have not been undone; i.e. `endedDate` is null). Ended allocations are excluded from the list.
+
+- Auth: Required (ADMIN)
+- Status: `200 OK`
+
+Query params:
+- `page` (optional): 0-based page index; default `0`.
+- `size` (optional): Page size; default `20`, max `100`.
+- `search` (optional): Case-insensitive substring match on tutor full name or student full name (firstName + lastName).
+
+Success response: JSON object with pagination metadata and flat list of allocation items.
+
+```json
+{
+  "content": [
+    {
+      "id": "4c74ddc1-4e3h-6b1d-df8e-9d8g997946ef",
+      "studentUserId": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
+      "tutorUserId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+      "allocatedById": "1a41aab8-1b1e-38a8-ac5b-6a5d664613bd",
+      "allocatedDate": "04/03/2026 09:15",
+      "endedDate": null,
+      "reason": "Math support",
+      "scheduleStart": "10/03/2026 09:00",
+      "scheduleEnd": "10/03/2026 10:00"
+    }
+  ],
+  "totalElements": 42,
+  "totalPages": 3,
+  "number": 0,
+  "size": 20,
+  "first": true,
+  "last": false
+}
+```
+
+Common errors:
+- `401 UNAUTHORIZED`
+
+### POST `/api/admin/allocations`
+Create a single student–tutor allocation.
+
+- Auth: Required (ADMIN)
+- Status: `201 Created`
+
+Request body:
+
+```json
+{
+  "studentUserId": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
+  "tutorUserId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+  "reason": "Math support",
+  "scheduleStart": "2026-03-10T09:00:00Z",
+  "scheduleEnd": "2026-03-10T10:00:00Z"
+}
+```
+
+Notes:
+- `studentUserId`, `tutorUserId`, `scheduleStart`, `scheduleEnd` are required (UUIDs for IDs; ISO-8601 for dates).
+- `reason` is optional.
+- `scheduleEnd` must be ≥ `scheduleStart`.
+- `allocated_by_id` is set to the current admin user.
+
+Success response:
+
+```json
+{
+  "id": "4c74ddc1-4e3h-6b1d-df8e-9d8g997946ef",
+  "studentUserId": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
+  "tutorUserId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+  "allocatedById": "1a41aab8-1b1e-38a8-ac5b-6a5d664613bd",
+  "allocatedDate": "04/03/2026 09:15",
+  "endedDate": null,
+  "reason": "Math support",
+  "scheduleStart": "10/03/2026 09:00",
+  "scheduleEnd": "10/03/2026 10:00"
+}
+```
+
+Common errors:
+- `400 VALIDATION_ERROR`
+- `400 INVALID_STUDENT` (user is not a student)
+- `400 INVALID_TUTOR` (user is not a tutor)
+- `400 INVALID_SCHEDULE` (e.g. scheduleEnd before scheduleStart)
+- `400 SCHEDULE_OVERLAP` (tutor already allocated for this schedule)
+- `404 USER_NOT_FOUND`
+- `401 UNAUTHORIZED`
+
+### POST `/api/admin/allocations/bulk`
+Create multiple student–tutor allocations in one request. Validations apply per item; fails on first validation error (fail-fast).
+
+- Auth: Required (ADMIN)
+- Status: `200 OK`
+
+Request body:
+
+```json
+{
+  "items": [
+    {
+      "studentUserId": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
+      "tutorUserId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+      "reason": "Math support",
+      "scheduleStart": "2026-03-10T09:00:00Z",
+      "scheduleEnd": "2026-03-10T10:00:00Z"
+    },
+    {
+      "studentUserId": "5d85eec2-5f4i-7c2e-eg9f-0e9h008057fg",
+      "tutorUserId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+      "reason": "Physics",
+      "scheduleStart": "2026-03-11T14:00:00Z",
+      "scheduleEnd": "2026-03-11T15:00:00Z"
+    }
+  ]
+}
+```
+
+Notes:
+- `items` is required; max 500 entries. Each item has the same shape as the single allocation request.
+
+Success response: array of allocation objects (same shape as single `POST /api/admin/allocations` response).
+
+```json
+[
+  {
+    "id": "...",
+    "studentUserId": "...",
+    "tutorUserId": "...",
+    "allocatedById": "...",
+    "allocatedDate": "...",
+    "endedDate": null,
+    "reason": "Math support",
+    "scheduleStart": "10/03/2026 09:00",
+    "scheduleEnd": "10/03/2026 10:00"
+  },
+  {
+    "id": "...",
+    "studentUserId": "...",
+    "tutorUserId": "...",
+    "allocatedById": "...",
+    "allocatedDate": "...",
+    "endedDate": null,
+    "reason": "Physics",
+    "scheduleStart": "11/03/2026 14:00",
+    "scheduleEnd": "11/03/2026 15:00"
+  }
+]
+```
+
+Common errors: same as single allocation (per first failing item).
+
+### POST `/api/admin/allocations/{id}/undo`
+End an allocation (set `ended_date` to now). Only active allocations can be undone. Once ended, the same student, tutor, and schedule can be allocated again via POST create.
+
+- Auth: Required (ADMIN)
+- Status: `200 OK`
+
+Path param:
+- `id` (UUID): allocation id
+
+Success response: allocation object (same shape as create response) with `endedDate` set to the undo time.
+
+Common errors:
+- `404 ALLOCATION_NOT_FOUND`
+- `400 ALLOCATION_ALREADY_ENDED` (allocation is already ended)
+- `401 UNAUTHORIZED`
+
+### PUT `/api/admin/allocations/{id}`
+Update an existing allocation (reallocation). Only active allocations can be updated. At least one field must be provided. Schedule overlap is checked excluding the current allocation.
+
+- Auth: Required (ADMIN)
+- Status: `200 OK`
+
+Path param:
+- `id` (UUID): allocation id
+
+Request body (all fields optional; at least one required):
+
+```json
+{
+  "reason": "Updated reason",
+  "scheduleStart": "2026-03-12T09:00:00Z",
+  "scheduleEnd": "2026-03-12T10:00:00Z",
+  "studentUserId": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
+  "tutorUserId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de"
+}
+```
+
+Notes:
+- If `scheduleStart` or `scheduleEnd` is set, both must be set; `scheduleEnd` must be ≥ `scheduleStart`.
+- If `studentUserId` or `tutorUserId` is set, user must exist and have role STUDENT or TUTOR respectively.
+- When schedule or tutor is changed, overlap is checked for the (possibly new) tutor excluding this allocation.
+
+Success response: allocation object (same shape as create response) with updated fields.
+
+Common errors:
+- `400 NO_UPDATE_FIELDS` (no fields provided)
+- `400 INVALID_SCHEDULE` (partial schedule or scheduleEnd before scheduleStart)
+- `400 INVALID_STUDENT` / `400 INVALID_TUTOR`
+- `400 SCHEDULE_OVERLAP`
+- `400 CANNOT_UPDATE_ENDED_ALLOCATION` (allocation already ended)
+- `404 ALLOCATION_NOT_FOUND` / `404 USER_NOT_FOUND`
+- `401 UNAUTHORIZED`
+
+---
+
 ## Global Error Codes (Current)
 - `VALIDATION_ERROR` -> `400`
 - `DATA_INTEGRITY_ERROR` -> `400`
+- `INVALID_STUDENT` -> `400` (allocation: user is not a student)
+- `INVALID_TUTOR` -> `400` (allocation: user is not a tutor)
+- `INVALID_SCHEDULE` -> `400` (allocation: e.g. scheduleEnd before scheduleStart)
+- `SCHEDULE_OVERLAP` -> `400` (allocation: tutor already allocated for this schedule)
 - `AUTHENTICATION_FAILED` -> `401`
 - `UNAUTHORIZED` -> `401`
 - `USER_NOT_FOUND` -> `404`
+- `ALLOCATION_NOT_FOUND` -> `404`
+- `ALLOCATION_ALREADY_ENDED` -> `400` (undo: allocation already ended)
+- `CANNOT_UPDATE_ENDED_ALLOCATION` -> `400` (PUT: cannot update ended allocation)
+- `NO_UPDATE_FIELDS` -> `400` (PUT: at least one field required)
+- `INVALID_OR_EXPIRED_TOKEN` -> `400` (reset-password: token invalid or expired)
 - `DUPLICATE_USERNAME` -> `409`
 - `DUPLICATE_EMAIL` -> `409`
 - `INTERNAL_SERVER_ERROR` -> `500`
