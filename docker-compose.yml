@@ -3,14 +3,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: etutoring-backend:latest
+    image: yemindev/etutoring-backend:latest
     container_name: eTutoring-backend
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "8080:8081"
     environment:
       SPRING_PROFILES_ACTIVE: dev
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required in .env}
