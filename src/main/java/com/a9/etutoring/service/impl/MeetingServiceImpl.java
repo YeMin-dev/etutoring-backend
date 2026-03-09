@@ -1,0 +1,170 @@
+package com.a9.etutoring.service.impl;
+
+import com.a9.etutoring.domain.dto.meeting.MeetingCreateRequest;
+import com.a9.etutoring.domain.dto.meeting.MeetingResponse;
+import com.a9.etutoring.domain.dto.meeting.MeetingUpdateRequest;
+import com.a9.etutoring.domain.enums.UserRole;
+import com.a9.etutoring.domain.model.Meeting;
+import com.a9.etutoring.domain.model.User;
+import com.a9.etutoring.exception.BadRequestException;
+import com.a9.etutoring.exception.ResourceNotFoundException;
+import com.a9.etutoring.repository.MeetingRepository;
+import com.a9.etutoring.repository.UserRepository;
+import com.a9.etutoring.service.EmailService;
+import com.a9.etutoring.service.MeetingService;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@Transactional
+public class MeetingServiceImpl implements MeetingService {
+
+    private static final DateTimeFormatter DATE_FORMATTER =
+        DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneOffset.UTC);
+
+    private final MeetingRepository meetingRepository;
+    private final UserRepository userRepository;
+    private final EmailService emailService;
+
+    public MeetingServiceImpl(MeetingRepository meetingRepository,
+                              UserRepository userRepository,
+                              EmailService emailService) {
+        this.meetingRepository = meetingRepository;
+        this.userRepository = userRepository;
+        this.emailService = emailService;
+    }
+
+    @Override
+    public MeetingResponse create(UUID currentUserId, MeetingCreateRequest request) {
+        User tutor = userRepository.findByIdAndDeletedDateIsNull(currentUserId)
+            .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "Tutor not found"));
+        if (tutor.getRole() != UserRole.TUTOR) {
+            throw new BadRequestException("ONLY_TUTORS_CAN_ARRANGE", "Only tutors can arrange meetings");
+        }
+        if (request.endDate().isBefore(request.startDate())) {
+            throw new BadRequestException("INVALID_SCHEDULE", "endDate must be after or equal to startDate");
+        }
+        User student = userRepository.findByIdAndDeletedDateIsNull(request.studentUserId())
+            .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "Student not found"));
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new BadRequestException("INVALID_STUDENT", "User is not a student");
+        }
+
+        Meeting meeting = new Meeting();
+        meeting.setId(UUID.randomUUID());
+        meeting.setStudent(student);
+        meeting.setTutor(tutor);
+        meeting.setCreatedBy(tutor);
+        meeting.setStartDate(request.startDate());
+        meeting.setEndDate(request.endDate());
+        meeting.setMode(request.mode());
+        meeting.setLocation(request.location());
+        meeting.setLink(request.link());
+        meeting.setDescription(request.description());
+        Instant now = Instant.now();
+        meeting.setCreatedDate(now);
+        meeting.setUpdatedDate(null);
+
+        Meeting saved = meetingRepository.save(meeting);
+        sendMeetingArrangedEmail(student, saved);
+        return toResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MeetingResponse> list(UUID currentUserId, Pageable pageable) {
+        Page<Meeting> page = meetingRepository.findByTutor_IdOrderByStartDateDesc(currentUserId, pageable);
+        List<MeetingResponse> content = page.getContent().stream().map(this::toResponse).toList();
+        return new PageImpl<>(content, page.getPageable(), page.getTotalElements());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MeetingResponse getById(UUID currentUserId, UUID id) {
+        Meeting meeting = meetingRepository.findByIdAndTutor_Id(id, currentUserId)
+            .orElseThrow(() -> new ResourceNotFoundException("MEETING_NOT_FOUND", "Meeting not found"));
+        return toResponse(meeting);
+    }
+
+    @Override
+    public MeetingResponse update(UUID currentUserId, UUID id, MeetingUpdateRequest request) {
+        Meeting meeting = meetingRepository.findByIdAndTutor_Id(id, currentUserId)
+            .orElseThrow(() -> new ResourceNotFoundException("MEETING_NOT_FOUND", "Meeting not found"));
+
+        if (request.startDate() != null) meeting.setStartDate(request.startDate());
+        if (request.endDate() != null) meeting.setEndDate(request.endDate());
+        if (request.mode() != null) meeting.setMode(request.mode());
+        if (request.location() != null) meeting.setLocation(request.location());
+        if (request.link() != null) meeting.setLink(request.link());
+        if (request.description() != null) meeting.setDescription(request.description());
+
+        if (meeting.getEndDate().isBefore(meeting.getStartDate())) {
+            throw new BadRequestException("INVALID_SCHEDULE", "endDate must be after or equal to startDate");
+        }
+        meeting.setUpdatedDate(Instant.now());
+        return toResponse(meetingRepository.save(meeting));
+    }
+
+    @Override
+    public void delete(UUID currentUserId, UUID id) {
+        Meeting meeting = meetingRepository.findByIdAndTutor_Id(id, currentUserId)
+            .orElseThrow(() -> new ResourceNotFoundException("MEETING_NOT_FOUND", "Meeting not found"));
+        meetingRepository.delete(meeting);
+    }
+
+    private MeetingResponse toResponse(Meeting m) {
+        return new MeetingResponse(
+            m.getId(),
+            m.getStudent().getId(),
+            m.getTutor().getId(),
+            m.getCreatedBy().getId(),
+            m.getStartDate(),
+            m.getEndDate(),
+            m.getMode(),
+            m.getLocation(),
+            m.getLink(),
+            m.getDescription(),
+            m.getCreatedDate(),
+            m.getUpdatedDate()
+        );
+    }
+
+    private void sendMeetingArrangedEmail(User student, Meeting meeting) {
+        String studentName = buildFullName(student);
+        String startStr = DATE_FORMATTER.format(meeting.getStartDate());
+        String endStr = DATE_FORMATTER.format(meeting.getEndDate());
+        String locationOrLink = meeting.getMode().name().equals("VIRTUAL") && meeting.getLink() != null
+            ? "Link: " + meeting.getLink()
+            : meeting.getLocation() != null ? "Location: " + meeting.getLocation() : "—";
+        String desc = meeting.getDescription() != null && !meeting.getDescription().isBlank()
+            ? "\nDetails: " + meeting.getDescription() : "";
+
+        String body = String.format(
+            "Hello %s,\n\n" +
+            "A meeting has been arranged for you.\n\n" +
+            "Start: %s\nEnd: %s\nMode: %s\n%s%s\n\n" +
+            "Best regards,\neTutoring System",
+            studentName, startStr, endStr, meeting.getMode(), locationOrLink, desc);
+
+        emailService.sendEmail(student.getEmail(), "Meeting arranged – eTutoring", body);
+    }
+
+    private String buildFullName(User user) {
+        if (user.getFirstName() != null && !user.getFirstName().isBlank()
+            && user.getLastName() != null && !user.getLastName().isBlank()) {
+            return user.getFirstName() + " " + user.getLastName();
+        }
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+        return user.getEmail();
+    }
+}
