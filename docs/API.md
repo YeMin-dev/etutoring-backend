@@ -534,6 +534,136 @@ Common errors:
 
 ---
 
+## TutorMeetingController (Meetings)
+Base path: `/api/tutor`
+
+All endpoints require **TUTOR** or **ADMIN** role. Only the tutor who owns a meeting can list, get, update, or delete it (list returns meetings where the authenticated user is the tutor). The student receives an email notification when a meeting is created, updated, or deleted (cancelled). Only tutors can create meetings.
+
+### GET `/api/tutor/meetings`
+Paged list of meetings for the authenticated tutor (meetings where tutor_user_id is the current user), sorted by startDate descending.
+
+- Auth: Required (TUTOR or ADMIN)
+- Status: `200 OK`
+
+Query params:
+- `page` (optional): 0-based page index; default `0`.
+- `size` (optional): Page size; default `20`, max `100`.
+
+Success response: JSON object with pagination metadata and `content` array of meeting objects (same shape as single meeting below).
+
+Common errors:
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### GET `/api/tutor/meetings/{id}`
+Get one meeting by ID. Only allowed if the meeting’s tutor is the authenticated user.
+
+- Auth: Required (TUTOR or ADMIN)
+- Status: `200 OK`
+
+Path param: `id` (UUID)
+
+Success response:
+
+```json
+{
+  "id": "7d84ffd2-6g5j-8d3e-fh0g-1f0i119168gh",
+  "studentUserId": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
+  "tutorUserId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+  "createdById": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+  "startDate": "15/03/2026 10:00",
+  "endDate": "15/03/2026 11:00",
+  "mode": "VIRTUAL",
+  "location": null,
+  "link": "https://meet.example.com/abc",
+  "description": "Math revision",
+  "createdDate": "04/03/2026 09:20",
+  "updatedDate": null
+}
+```
+
+Common errors:
+- `404 MEETING_NOT_FOUND`
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### POST `/api/tutor/meetings`
+Create a meeting. The authenticated user must be a TUTOR; they become the tutor and creator. An email notification is sent to the student with meeting details.
+
+- Auth: Required (TUTOR or ADMIN; only TUTOR can create)
+- Status: `201 Created`
+
+Request body:
+
+```json
+{
+  "studentUserId": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
+  "startDate": "2026-03-15T10:00:00Z",
+  "endDate": "2026-03-15T11:00:00Z",
+  "mode": "VIRTUAL",
+  "location": null,
+  "link": "https://meet.example.com/abc",
+  "description": "Math revision"
+}
+```
+
+- `studentUserId`, `startDate`, `endDate`, `mode` are required. `mode` must be `IN_PERSON` or `VIRTUAL`. `location`, `link`, `description` are optional.
+
+Success response: same shape as `GET /api/tutor/meetings/{id}`.
+
+Common errors:
+- `400 VALIDATION_ERROR`
+- `400 ONLY_TUTORS_CAN_ARRANGE` (non-tutor user attempts to create)
+- `400 INVALID_SCHEDULE` (endDate before startDate)
+- `400 MEETING_OVERLAP` (tutor already has a meeting in this time range)
+- `400 INVALID_STUDENT` (user is not a student)
+- `404 USER_NOT_FOUND`
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### PUT `/api/tutor/meetings/{id}`
+Update a meeting. Only the meeting’s tutor can update. All request body fields are optional (partial update). An email notification is sent to the student with the updated meeting details.
+
+- Auth: Required (TUTOR or ADMIN)
+- Status: `200 OK`
+
+Path param: `id` (UUID)
+
+Request body (all optional):
+
+```json
+{
+  "startDate": "2026-03-16T10:00:00Z",
+  "endDate": "2026-03-16T11:00:00Z",
+  "mode": "IN_PERSON",
+  "location": "Room 101",
+  "link": null,
+  "description": "Updated description"
+}
+```
+
+- If both `startDate` and `endDate` are present, `endDate` must be ≥ `startDate`.
+
+Success response: same shape as `GET /api/tutor/meetings/{id}`.
+
+Common errors:
+- `400 VALIDATION_ERROR`
+- `400 INVALID_SCHEDULE` (endDate before startDate after update)
+- `400 MEETING_OVERLAP` (tutor already has another meeting in this time range)
+- `404 MEETING_NOT_FOUND`
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### DELETE `/api/tutor/meetings/{id}`
+Delete a meeting (cancelled). Only the meeting's tutor can delete. An email notification is sent to the student that the meeting has been cancelled.
+
+- Auth: Required (TUTOR or ADMIN)
+- Status: `204 No Content`
+
+Path param: `id` (UUID)
+
+Common errors:
+- `404 MEETING_NOT_FOUND`
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+---
+
 ## Global Error Codes (Current)
 - `VALIDATION_ERROR` -> `400`
 - `DATA_INTEGRITY_ERROR` -> `400`
@@ -546,6 +676,9 @@ Common errors:
 - `USER_NOT_FOUND` -> `404`
 - `ADMIN_NOT_FOUND` -> `404` (GET admin-user: no admin user exists)
 - `ONLY_ONE_ADMIN_ALLOWED` -> `400` (create/update user with role ADMIN when an admin already exists)
+- `MEETING_NOT_FOUND` -> `404` (meetings: meeting not found or not owned by current tutor)
+- `ONLY_TUTORS_CAN_ARRANGE` -> `400` (meetings: only tutors can create meetings)
+- `MEETING_OVERLAP` -> `400` (meetings: tutor already has a meeting in this time range)
 - `ALLOCATION_NOT_FOUND` -> `404`
 - `ALLOCATION_ALREADY_ENDED` -> `400` (undo: allocation already ended)
 - `CANNOT_UPDATE_ENDED_ALLOCATION` -> `400` (PUT: cannot update ended allocation)
