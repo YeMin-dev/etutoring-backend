@@ -57,6 +57,7 @@ public class MeetingServiceImpl implements MeetingService {
         if (student.getRole() != UserRole.STUDENT) {
             throw new BadRequestException("INVALID_STUDENT", "User is not a student");
         }
+        checkMeetingOverlap(currentUserId, request.startDate(), request.endDate(), null);
 
         Meeting meeting = new Meeting();
         meeting.setId(UUID.randomUUID());
@@ -109,15 +110,28 @@ public class MeetingServiceImpl implements MeetingService {
         if (meeting.getEndDate().isBefore(meeting.getStartDate())) {
             throw new BadRequestException("INVALID_SCHEDULE", "endDate must be after or equal to startDate");
         }
+        checkMeetingOverlap(currentUserId, meeting.getStartDate(), meeting.getEndDate(), meeting.getId());
         meeting.setUpdatedDate(Instant.now());
-        return toResponse(meetingRepository.save(meeting));
+        Meeting saved = meetingRepository.save(meeting);
+        sendMeetingUpdatedEmail(saved.getStudent(), saved);
+        return toResponse(saved);
     }
 
     @Override
     public void delete(UUID currentUserId, UUID id) {
         Meeting meeting = meetingRepository.findByIdAndTutor_Id(id, currentUserId)
             .orElseThrow(() -> new ResourceNotFoundException("MEETING_NOT_FOUND", "Meeting not found"));
+        sendMeetingCancelledEmail(meeting.getStudent(), meeting);
         meetingRepository.delete(meeting);
+    }
+
+    private void checkMeetingOverlap(UUID tutorId, Instant startDate, Instant endDate, UUID exclusionMeetingId) {
+        List<Meeting> overlapping = exclusionMeetingId == null
+            ? meetingRepository.findByTutorWithScheduleOverlap(tutorId, startDate, endDate)
+            : meetingRepository.findByTutorWithScheduleOverlapExcluding(tutorId, startDate, endDate, exclusionMeetingId);
+        if (!overlapping.isEmpty()) {
+            throw new BadRequestException("MEETING_OVERLAP", "Tutor already has a meeting in this time range");
+        }
     }
 
     private MeetingResponse toResponse(Meeting m) {
@@ -155,6 +169,40 @@ public class MeetingServiceImpl implements MeetingService {
             studentName, startStr, endStr, meeting.getMode(), locationOrLink, desc);
 
         emailService.sendEmail(student.getEmail(), "Meeting arranged – eTutoring", body);
+    }
+
+    private void sendMeetingUpdatedEmail(User student, Meeting meeting) {
+        String studentName = buildFullName(student);
+        String startStr = DATE_FORMATTER.format(meeting.getStartDate());
+        String endStr = DATE_FORMATTER.format(meeting.getEndDate());
+        String locationOrLink = meeting.getMode().name().equals("VIRTUAL") && meeting.getLink() != null
+            ? "Link: " + meeting.getLink()
+            : meeting.getLocation() != null ? "Location: " + meeting.getLocation() : "—";
+        String desc = meeting.getDescription() != null && !meeting.getDescription().isBlank()
+            ? "\nDetails: " + meeting.getDescription() : "";
+
+        String body = String.format(
+            "Hello %s,\n\n" +
+            "Your meeting has been updated.\n\n" +
+            "Start: %s\nEnd: %s\nMode: %s\n%s%s\n\n" +
+            "Best regards,\neTutoring System",
+            studentName, startStr, endStr, meeting.getMode(), locationOrLink, desc);
+
+        emailService.sendEmail(student.getEmail(), "Meeting updated – eTutoring", body);
+    }
+
+    private void sendMeetingCancelledEmail(User student, Meeting meeting) {
+        String studentName = buildFullName(student);
+        String startStr = DATE_FORMATTER.format(meeting.getStartDate());
+        String endStr = DATE_FORMATTER.format(meeting.getEndDate());
+
+        String body = String.format(
+            "Hello %s,\n\n" +
+            "Your meeting scheduled for %s to %s has been cancelled.\n\n" +
+            "Best regards,\neTutoring System",
+            studentName, startStr, endStr);
+
+        emailService.sendEmail(student.getEmail(), "Meeting cancelled – eTutoring", body);
     }
 
     private String buildFullName(User user) {

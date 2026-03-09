@@ -537,7 +537,7 @@ Common errors:
 ## TutorMeetingController (Meetings)
 Base path: `/api/tutor`
 
-All endpoints require **TUTOR** or **ADMIN** role. Only the tutor who owns a meeting can list, get, update, or delete it (list returns meetings where the authenticated user is the tutor). Creating a meeting sends an email to the student with meeting details. Only tutors can create meetings.
+All endpoints require **TUTOR** or **ADMIN** role. Only the tutor who owns a meeting can list, get, update, or delete it (list returns meetings where the authenticated user is the tutor). The student receives an email notification when a meeting is created, updated, or deleted (cancelled). Only tutors can create meetings.
 
 ### GET `/api/tutor/meetings`
 Paged list of meetings for the authenticated tutor (meetings where tutor_user_id is the current user), sorted by startDate descending.
@@ -586,7 +586,7 @@ Common errors:
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### POST `/api/tutor/meetings`
-Create a meeting. The authenticated user must be a TUTOR; they become the tutor and creator. An email is sent to the student with meeting details.
+Create a meeting. The authenticated user must be a TUTOR; they become the tutor and creator. An email notification is sent to the student with meeting details.
 
 - Auth: Required (TUTOR or ADMIN; only TUTOR can create)
 - Status: `201 Created`
@@ -613,12 +613,13 @@ Common errors:
 - `400 VALIDATION_ERROR`
 - `400 ONLY_TUTORS_CAN_ARRANGE` (non-tutor user attempts to create)
 - `400 INVALID_SCHEDULE` (endDate before startDate)
+- `400 MEETING_OVERLAP` (tutor already has a meeting in this time range)
 - `400 INVALID_STUDENT` (user is not a student)
 - `404 USER_NOT_FOUND`
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### PUT `/api/tutor/meetings/{id}`
-Update a meeting. Only the meeting’s tutor can update. All request body fields are optional (partial update).
+Update a meeting. Only the meeting’s tutor can update. All request body fields are optional (partial update). An email notification is sent to the student with the updated meeting details.
 
 - Auth: Required (TUTOR or ADMIN)
 - Status: `200 OK`
@@ -645,11 +646,12 @@ Success response: same shape as `GET /api/tutor/meetings/{id}`.
 Common errors:
 - `400 VALIDATION_ERROR`
 - `400 INVALID_SCHEDULE` (endDate before startDate after update)
+- `400 MEETING_OVERLAP` (tutor already has another meeting in this time range)
 - `404 MEETING_NOT_FOUND`
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### DELETE `/api/tutor/meetings/{id}`
-Delete a meeting. Only the meeting’s tutor can delete.
+Delete a meeting (cancelled). Only the meeting's tutor can delete. An email notification is sent to the student that the meeting has been cancelled.
 
 - Auth: Required (TUTOR or ADMIN)
 - Status: `204 No Content`
@@ -676,6 +678,7 @@ Common errors:
 - `ONLY_ONE_ADMIN_ALLOWED` -> `400` (create/update user with role ADMIN when an admin already exists)
 - `MEETING_NOT_FOUND` -> `404` (meetings: meeting not found or not owned by current tutor)
 - `ONLY_TUTORS_CAN_ARRANGE` -> `400` (meetings: only tutors can create meetings)
+- `MEETING_OVERLAP` -> `400` (meetings: tutor already has a meeting in this time range)
 - `ALLOCATION_NOT_FOUND` -> `404`
 - `ALLOCATION_ALREADY_ENDED` -> `400` (undo: allocation already ended)
 - `CANNOT_UPDATE_ENDED_ALLOCATION` -> `400` (PUT: cannot update ended allocation)
