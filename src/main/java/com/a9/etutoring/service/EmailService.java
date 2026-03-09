@@ -2,6 +2,7 @@ package com.a9.etutoring.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -14,15 +15,19 @@ public class EmailService {
     private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
     private final JavaMailSender mailSender;
+    private final String from;
 
-    public EmailService(JavaMailSender mailSender) {
+    public EmailService(JavaMailSender mailSender,
+                        @Value("${spring.mail.from}") String from) {
         this.mailSender = mailSender;
+        this.from = from;
     }
 
     @Async
     public void sendEmail(String to, String subject, String body) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(from);
             message.setTo(to);
             message.setSubject(subject);
             message.setText(body);
