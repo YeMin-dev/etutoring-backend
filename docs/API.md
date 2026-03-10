@@ -3,9 +3,11 @@
 This document covers all public API controllers.
 
 ## Base URL
+
 - `http://localhost:8080`
 
 ## Conventions
+
 - Content type: `application/json`
 - Error response format:
   ```json
@@ -14,6 +16,7 @@ This document covers all public API controllers.
 - Date-time response format (for `Instant` fields): `dd/MM/yyyy HH:mm` (UTC)
 
 ## Authentication
+
 - JWT bearer auth is required for all endpoints except:
   - `POST /api/auth/signup`
   - `POST /api/auth/login`
@@ -29,9 +32,11 @@ Authorization: Bearer <accessToken>
 ---
 
 ## AuthController
+
 Base path: `/api/auth`
 
 ### POST `/api/auth/signup`
+
 Create a new user account and return access token.
 
 - Auth: Public
@@ -51,6 +56,7 @@ Request body:
 ```
 
 Notes:
+
 - `role` is optional; defaults to `STUDENT`.
 - Allowed roles: `ADMIN`, `TUTOR`, `STUDENT`.
 
@@ -68,11 +74,13 @@ Success response:
 ```
 
 Common errors:
+
 - `400 VALIDATION_ERROR`
 - `409 DUPLICATE_USERNAME`
 - `409 DUPLICATE_EMAIL`
 
 ### POST `/api/auth/login`
+
 Authenticate with username/password and return access token.
 
 - Auth: Public
@@ -101,12 +109,14 @@ Success response:
 ```
 
 Common errors:
+
 - `401 AUTHENTICATION_FAILED` (invalid credentials)
 - `401 AUTHENTICATION_FAILED` with message like:
   - `User <username> does not exist. Please sign up.`
 - `400 VALIDATION_ERROR`
 
 ### POST `/api/auth/forgot-password`
+
 Request a password reset link for the given email. If an account exists, an email with a reset link is sent; the response is always the same so that the endpoint does not reveal whether the email is registered.
 
 - Auth: Public
@@ -123,9 +133,11 @@ Request body:
 Success: No response body. A reset email is sent when the email is associated with an active account. The link in the email expires in 15 minutes.
 
 Common errors:
+
 - `400 VALIDATION_ERROR` (e.g. invalid or missing email)
 
 ### POST `/api/auth/reset-password`
+
 Set a new password using a valid reset token (from the forgot-password email link).
 
 - Auth: Public
@@ -141,11 +153,13 @@ Request body:
 ```
 
 Notes:
+
 - `newPassword` must be at least 8 characters.
 
 Success: No response body. The user can then log in with the new password.
 
 Common errors:
+
 - `400 VALIDATION_ERROR` (e.g. token blank, password too short)
 - `400 INVALID_OR_EXPIRED_TOKEN` — token not found or expired
 
@@ -154,6 +168,7 @@ Common errors:
 ## MeController
 
 ### GET `/api/me`
+
 Return current authenticated user profile.
 
 - Auth: Required
@@ -176,31 +191,37 @@ Success response:
 ```
 
 Common errors:
+
 - `401 UNAUTHORIZED`
 
 ---
 
 ## AdminUserController (User management)
+
 Base path: `/api/admin`
 
 All endpoints below require **ADMIN** role. List and CRUD operations on users are admin-only. Students and tutors are listed via separate paged endpoints.
 
 ### GET `/api/admin/users/students`
+
 Paged list of users with role **STUDENT** (non-deleted only).
 
 - Auth: Required (ADMIN)
 - Status: `200 OK`
 
 Query params:
+
 - `page` (optional): 0-based page index; default `0`.
 - `size` (optional): Page size; default `20`, max `100`.
 
 Success response: JSON object with pagination metadata and `content` array of user objects (same shape as single user below).
 
 Common errors:
+
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### GET `/api/admin/users/tutors`
+
 Paged list of users with role **TUTOR** (non-deleted only).
 
 - Auth: Required (ADMIN)
@@ -211,9 +232,11 @@ Query params: same as `GET /api/admin/users/students`.
 Success response: same paginated shape as students.
 
 Common errors:
+
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### GET `/api/admin/admin-user`
+
 Get the single admin user (non-deleted). At most one admin user exists in the system.
 
 - Auth: Required (ADMIN)
@@ -222,10 +245,12 @@ Get the single admin user (non-deleted). At most one admin user exists in the sy
 Success response: same shape as `GET /api/admin/users/{id}` (single user object).
 
 Common errors:
+
 - `404 ADMIN_NOT_FOUND` (no admin user exists)
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### GET `/api/admin/users/{id}`
+
 Get one user by ID (non-deleted only).
 
 - Auth: Required (ADMIN)
@@ -252,10 +277,12 @@ Success response:
 ```
 
 Common errors:
+
 - `404 USER_NOT_FOUND`
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### POST `/api/admin/users`
+
 Create a new user (admin only).
 
 - Auth: Required (ADMIN)
@@ -282,6 +309,7 @@ Request body:
 Success response: same shape as `GET /api/admin/users/{id}`.
 
 Common errors:
+
 - `400 VALIDATION_ERROR`
 - `400 ONLY_ONE_ADMIN_ALLOWED` (creating with role ADMIN when an admin already exists)
 - `409 DUPLICATE_USERNAME`
@@ -289,6 +317,7 @@ Common errors:
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### PUT `/api/admin/users/{id}`
+
 Update user fields.
 
 - Auth: Required (ADMIN)
@@ -301,6 +330,7 @@ Request body (all fields optional): same as before (username, firstName, lastNam
 Success response: same shape as `GET /api/admin/users/{id}`.
 
 Common errors:
+
 - `400 VALIDATION_ERROR`
 - `400 ONLY_ONE_ADMIN_ALLOWED` (setting role to ADMIN when another admin already exists)
 - `404 USER_NOT_FOUND`
@@ -309,6 +339,7 @@ Common errors:
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### DELETE `/api/admin/users/{id}`
+
 Soft delete user (`deleted_date` is set).
 
 - Auth: Required (ADMIN)
@@ -317,23 +348,27 @@ Soft delete user (`deleted_date` is set).
 Path param: `id` (UUID)
 
 Common errors:
+
 - `404 USER_NOT_FOUND`
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ---
 
 ## AdminTutorAllocationController
+
 Base path: `/api/admin`
 
 All endpoints require **ADMIN** role. Used to allocate students to tutors (single or bulk). `scheduleStart` and `scheduleEnd` are required; the API rejects the request if the tutor already has an active allocation whose schedule overlaps. Creating an allocation (single or bulk) triggers email notifications to the student and tutor.
 
 ### GET `/api/admin/allocations`
+
 List allocations with pagination and optional search by tutor or student name. Returns **only active allocations** (allocations that have not been undone; i.e. `endedDate` is null). Ended allocations are excluded from the list.
 
 - Auth: Required (ADMIN)
 - Status: `200 OK`
 
 Query params:
+
 - `page` (optional): 0-based page index; default `0`.
 - `size` (optional): Page size; default `20`, max `100`.
 - `search` (optional): Case-insensitive substring match on tutor full name or student full name (firstName + lastName).
@@ -365,9 +400,11 @@ Success response: JSON object with pagination metadata and flat list of allocati
 ```
 
 Common errors:
+
 - `401 UNAUTHORIZED`
 
 ### POST `/api/admin/allocations`
+
 Create a single student–tutor allocation.
 
 - Auth: Required (ADMIN)
@@ -386,6 +423,7 @@ Request body:
 ```
 
 Notes:
+
 - `studentUserId`, `tutorUserId`, `scheduleStart`, `scheduleEnd` are required (UUIDs for IDs; ISO-8601 for dates).
 - `reason` is optional.
 - `scheduleEnd` must be ≥ `scheduleStart`.
@@ -408,6 +446,7 @@ Success response:
 ```
 
 Common errors:
+
 - `400 VALIDATION_ERROR`
 - `400 INVALID_STUDENT` (user is not a student)
 - `400 INVALID_TUTOR` (user is not a tutor)
@@ -417,6 +456,7 @@ Common errors:
 - `401 UNAUTHORIZED`
 
 ### POST `/api/admin/allocations/bulk`
+
 Create multiple student–tutor allocations in one request. Validations apply per item; fails on first validation error (fail-fast).
 
 - Auth: Required (ADMIN)
@@ -446,6 +486,7 @@ Request body:
 ```
 
 Notes:
+
 - `items` is required; max 500 entries. Each item has the same shape as the single allocation request.
 
 Success response: array of allocation objects (same shape as single `POST /api/admin/allocations` response).
@@ -479,29 +520,98 @@ Success response: array of allocation objects (same shape as single `POST /api/a
 
 Common errors: same as single allocation (per first failing item).
 
+### POST `/api/admin/allocations/preview`
+
+Preview bulk allocation schedule without saving. Accepts a date, slot duration, tutor, list of students, and optional time zone; computes `scheduleStart` and `scheduleEnd` for each student using 9am–5pm with lunch 12pm–1pm excluded. Only **future** slots are returned (e.g. if it is 9:40, the first slot is 10:00). Response times are in the requested time zone (ISO-8601 with offset). The response can be sent to `POST /api/admin/allocations/bulk` (schedule strings parse as `Instant`).
+
+- Auth: Required (ADMIN)
+- Status: `200 OK`
+
+Request body:
+
+```json
+{
+  "date": "2026-03-10",
+  "slotDurationMinutes": 60,
+  "tutorUserId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+  "studentUserIds": [
+    "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
+    "5d85eec2-5f4i-7c2e-eg9f-0e9h008057fg"
+  ],
+  "reason": "Math support",
+  "timeZoneId": "Asia/Yangon",
+  "startTime": "10:30"
+}
+```
+
+Notes:
+
+- `date` (ISO-8601 date), `slotDurationMinutes` (positive integer), `tutorUserId`, and `studentUserIds` (non-empty, max 500) are required. `reason` is optional.
+- `timeZoneId` (optional): IANA time zone ID (e.g. `Asia/Yangon`). If omitted, server default is used. Slots are in this zone.
+- `startTime` (optional): Local time (e.g. `"10:30"` or `"10:45"`) on the given date in the request time zone. If set, slot generation starts from this time: the first slot begins at this time (e.g. 10:30–11:30). Morning slots still end by 12:00 (lunch); afternoon slots run from 13:00. If omitted, slots use the default work-day grid and only slots that start **after** the current time are returned.
+- Response `scheduleStart` and `scheduleEnd` are ISO-8601 strings with offset (e.g. `2026-03-10T10:00:00+06:30`) so times display correctly for the client and can be submitted to the bulk create API as-is.
+
+Success response: `items` with `studentUserId`, `tutorUserId`, `reason`, `scheduleStart`, `scheduleEnd` per item (strings with offset).
+
+```json
+{
+  "items": [
+    {
+      "studentUserId": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
+      "tutorUserId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+      "reason": "Math support",
+      "scheduleStart": "2026-03-10T10:00:00+06:30",
+      "scheduleEnd": "2026-03-10T11:00:00+06:30"
+    },
+    {
+      "studentUserId": "5d85eec2-5f4i-7c2e-eg9f-0e9h008057fg",
+      "tutorUserId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+      "reason": "Math support",
+      "scheduleStart": "2026-03-10T11:00:00+06:30",
+      "scheduleEnd": "2026-03-10T12:00:00+06:30"
+    }
+  ]
+}
+```
+
+Common errors:
+
+- `400 VALIDATION_ERROR` (invalid date, non-positive slot duration, etc.)
+- `400 TOO_MANY_STUDENTS` (number of students exceeds available remaining slots for the day)
+- `400 INVALID_TIMEZONE` (invalid `timeZoneId`)
+- `400 INVALID_TUTOR` (user is not a tutor)
+- `400 INVALID_STUDENT` (user is not a student)
+- `404 USER_NOT_FOUND`
+- `401 UNAUTHORIZED`
+
 ### POST `/api/admin/allocations/{id}/undo`
+
 End an allocation (set `ended_date` to now). Only active allocations can be undone. Once ended, the same student, tutor, and schedule can be allocated again via POST create.
 
 - Auth: Required (ADMIN)
 - Status: `200 OK`
 
 Path param:
+
 - `id` (UUID): allocation id
 
 Success response: allocation object (same shape as create response) with `endedDate` set to the undo time.
 
 Common errors:
+
 - `404 ALLOCATION_NOT_FOUND`
 - `400 ALLOCATION_ALREADY_ENDED` (allocation is already ended)
 - `401 UNAUTHORIZED`
 
 ### PUT `/api/admin/allocations/{id}`
+
 Update an existing allocation (reallocation). Only active allocations can be updated. At least one field must be provided. Schedule overlap is checked excluding the current allocation.
 
 - Auth: Required (ADMIN)
 - Status: `200 OK`
 
 Path param:
+
 - `id` (UUID): allocation id
 
 Request body (all fields optional; at least one required):
@@ -517,6 +627,7 @@ Request body (all fields optional; at least one required):
 ```
 
 Notes:
+
 - If `scheduleStart` or `scheduleEnd` is set, both must be set; `scheduleEnd` must be ≥ `scheduleStart`.
 - If `studentUserId` or `tutorUserId` is set, user must exist and have role STUDENT or TUTOR respectively.
 - When schedule or tutor is changed, overlap is checked for the (possibly new) tutor excluding this allocation.
@@ -524,6 +635,7 @@ Notes:
 Success response: allocation object (same shape as create response) with updated fields.
 
 Common errors:
+
 - `400 NO_UPDATE_FIELDS` (no fields provided)
 - `400 INVALID_SCHEDULE` (partial schedule or scheduleEnd before scheduleStart)
 - `400 INVALID_STUDENT` / `400 INVALID_TUTOR`
@@ -535,26 +647,31 @@ Common errors:
 ---
 
 ## TutorMeetingController (Meetings)
+
 Base path: `/api/tutor`
 
 All endpoints require **TUTOR** or **ADMIN** role. Only the tutor who owns a meeting can list, get, update, or delete it (list returns meetings where the authenticated user is the tutor). The student receives an email notification when a meeting is created, updated, or deleted (cancelled). Only tutors can create meetings.
 
 ### GET `/api/tutor/meetings`
+
 Paged list of meetings for the authenticated tutor (meetings where tutor_user_id is the current user), sorted by startDate descending.
 
 - Auth: Required (TUTOR or ADMIN)
 - Status: `200 OK`
 
 Query params:
+
 - `page` (optional): 0-based page index; default `0`.
 - `size` (optional): Page size; default `20`, max `100`.
 
 Success response: JSON object with pagination metadata and `content` array of meeting objects (same shape as single meeting below).
 
 Common errors:
+
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### GET `/api/tutor/meetings/{id}`
+
 Get one meeting by ID. Only allowed if the meeting’s tutor is the authenticated user.
 
 - Auth: Required (TUTOR or ADMIN)
@@ -582,10 +699,12 @@ Success response:
 ```
 
 Common errors:
+
 - `404 MEETING_NOT_FOUND`
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### POST `/api/tutor/meetings`
+
 Create a meeting. The authenticated user must be a TUTOR; they become the tutor and creator. An email notification is sent to the student with meeting details.
 
 - Auth: Required (TUTOR or ADMIN; only TUTOR can create)
@@ -610,6 +729,7 @@ Request body:
 Success response: same shape as `GET /api/tutor/meetings/{id}`.
 
 Common errors:
+
 - `400 VALIDATION_ERROR`
 - `400 ONLY_TUTORS_CAN_ARRANGE` (non-tutor user attempts to create)
 - `400 INVALID_SCHEDULE` (endDate before startDate)
@@ -619,6 +739,7 @@ Common errors:
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### PUT `/api/tutor/meetings/{id}`
+
 Update a meeting. Only the meeting’s tutor can update. All request body fields are optional (partial update). An email notification is sent to the student with the updated meeting details.
 
 - Auth: Required (TUTOR or ADMIN)
@@ -644,6 +765,7 @@ Request body (all optional):
 Success response: same shape as `GET /api/tutor/meetings/{id}`.
 
 Common errors:
+
 - `400 VALIDATION_ERROR`
 - `400 INVALID_SCHEDULE` (endDate before startDate after update)
 - `400 MEETING_OVERLAP` (tutor already has another meeting in this time range)
@@ -651,6 +773,7 @@ Common errors:
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ### DELETE `/api/tutor/meetings/{id}`
+
 Delete a meeting (cancelled). Only the meeting's tutor can delete. An email notification is sent to the student that the meeting has been cancelled.
 
 - Auth: Required (TUTOR or ADMIN)
@@ -659,12 +782,14 @@ Delete a meeting (cancelled). Only the meeting's tutor can delete. An email noti
 Path param: `id` (UUID)
 
 Common errors:
+
 - `404 MEETING_NOT_FOUND`
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
 
 ---
 
 ## Global Error Codes (Current)
+
 - `VALIDATION_ERROR` -> `400`
 - `DATA_INTEGRITY_ERROR` -> `400`
 - `INVALID_STUDENT` -> `400` (allocation: user is not a student)
@@ -687,3 +812,4 @@ Common errors:
 - `DUPLICATE_USERNAME` -> `409`
 - `DUPLICATE_EMAIL` -> `409`
 - `INTERNAL_SERVER_ERROR` -> `500`
+

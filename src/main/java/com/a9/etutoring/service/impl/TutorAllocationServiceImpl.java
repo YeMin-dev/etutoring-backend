@@ -1,7 +1,10 @@
 package com.a9.etutoring.service.impl;
 
 import com.a9.etutoring.domain.dto.allocation.AllocationCreateRequest;
+import com.a9.etutoring.domain.dto.allocation.AllocationPreviewItemResponse;
+import com.a9.etutoring.domain.dto.allocation.AllocationPreviewRequest;
 import com.a9.etutoring.domain.dto.allocation.AllocationUpdateRequest;
+import com.a9.etutoring.domain.dto.allocation.BulkAllocationPreviewResponse;
 import com.a9.etutoring.domain.dto.allocation.BulkAllocationRequest;
 import com.a9.etutoring.domain.dto.allocation.TutorAllocationResponse;
 import com.a9.etutoring.domain.enums.UserRole;
@@ -10,13 +13,20 @@ import com.a9.etutoring.domain.model.User;
 import com.a9.etutoring.exception.BadRequestException;
 import com.a9.etutoring.exception.ResourceNotFoundException;
 import com.a9.etutoring.exception.UnauthorizedException;
+import com.a9.etutoring.config.AllocationPreviewScheduleProperties;
 import com.a9.etutoring.repository.TutorAllocationRepository;
 import com.a9.etutoring.repository.UserRepository;
 import com.a9.etutoring.security.UserPrincipal;
 import com.a9.etutoring.service.EmailService;
 import com.a9.etutoring.service.TutorAllocationService;
 import com.a9.etutoring.util.SecurityContextUtil;
+import java.time.DateTimeException;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -37,13 +47,16 @@ public class TutorAllocationServiceImpl implements TutorAllocationService {
     private final UserRepository userRepository;
     private final TutorAllocationRepository tutorAllocationRepository;
     private final EmailService emailService;
+    private final AllocationPreviewScheduleProperties scheduleProperties;
 
     public TutorAllocationServiceImpl(UserRepository userRepository,
                                       TutorAllocationRepository tutorAllocationRepository,
-                                      EmailService emailService) {
+                                      EmailService emailService,
+                                      AllocationPreviewScheduleProperties scheduleProperties) {
         this.userRepository = userRepository;
         this.tutorAllocationRepository = tutorAllocationRepository;
         this.emailService = emailService;
+        this.scheduleProperties = scheduleProperties;
     }
 
     @Override
@@ -69,6 +82,59 @@ public class TutorAllocationServiceImpl implements TutorAllocationService {
             result.add(allocate(item));
         }
         return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BulkAllocationPreviewResponse previewBulkAllocation(AllocationPreviewRequest request) {
+        SecurityContextUtil.currentPrincipal()
+            .orElseThrow(() -> new UnauthorizedException("UNAUTHORIZED", "Authentication required"));
+        User tutor = findActiveUser(request.tutorUserId());
+        if (tutor.getRole() != UserRole.TUTOR) {
+            throw new BadRequestException("INVALID_TUTOR", "User is not a tutor");
+        }
+        List<User> students = new ArrayList<>();
+        for (UUID studentId : request.studentUserIds()) {
+            User student = findActiveUser(studentId);
+            if (student.getRole() != UserRole.STUDENT) {
+                throw new BadRequestException("INVALID_STUDENT", "User is not a student");
+            }
+            students.add(student);
+        }
+        ZoneId zone = resolveZone(request.timeZoneId());
+        List<Slot> slots = computeSlotsForDay(request.date(), request.slotDurationMinutes(), zone, request.startTime());
+        if (request.startTime() == null) {
+            slots = slots.stream().filter(s -> s.start().isAfter(Instant.now())).toList();
+        }
+        if (request.studentUserIds().size() > slots.size()) {
+            throw new BadRequestException("TOO_MANY_STUDENTS",
+                "Number of students (" + request.studentUserIds().size() + ") exceeds available remaining slots for the day (" + slots.size() + ").");
+        }
+        List<AllocationPreviewItemResponse> items = new ArrayList<>();
+        for (int i = 0; i < request.studentUserIds().size(); i++) {
+            Slot slot = slots.get(i);
+            String startStr = slot.start().atZone(zone).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            String endStr = slot.end().atZone(zone).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            items.add(new AllocationPreviewItemResponse(
+                students.get(i).getId(),
+                tutor.getId(),
+                request.reason(),
+                startStr,
+                endStr
+            ));
+        }
+        return new BulkAllocationPreviewResponse(items);
+    }
+
+    private ZoneId resolveZone(String timeZoneId) {
+        if (timeZoneId != null && !timeZoneId.isBlank()) {
+            try {
+                return ZoneId.of(timeZoneId.trim());
+            } catch (DateTimeException e) {
+                throw new BadRequestException("INVALID_TIMEZONE", "Invalid timeZoneId: " + timeZoneId);
+            }
+        }
+        return ZoneId.systemDefault();
     }
 
     @Override
@@ -251,5 +317,41 @@ public class TutorAllocationServiceImpl implements TutorAllocationService {
             "Best regards,\n" +
             "eTutoring System",
             tutorFullName, studentFullName);
+    }
+
+    private record Slot(Instant start, Instant end) {}
+
+    private List<Slot> computeSlotsForDay(LocalDate date, int slotDurationMinutes, ZoneId zone, LocalTime customStart) {
+        int workStart = scheduleProperties.getWorkStartHour();
+        int workEnd = scheduleProperties.getWorkEndHour();
+        int lunchStart = scheduleProperties.getLunchStartHour();
+        int lunchEnd = scheduleProperties.getLunchEndHour();
+        LocalTime lunchStartTime = LocalTime.of(lunchStart, 0);
+        LocalTime lunchEndTime = LocalTime.of(lunchEnd, 0);
+        List<Slot> result = new ArrayList<>();
+        LocalDateTime morningEnd = date.atTime(lunchStartTime);
+        if (customStart != null) {
+            if (customStart.isBefore(lunchStartTime)) {
+                addSlots(result, date.atTime(customStart), morningEnd, slotDurationMinutes, zone);
+            }
+            if (!customStart.isAfter(lunchEndTime)) {
+                addSlots(result, date.atTime(lunchEndTime), date.atTime(workEnd, 0), slotDurationMinutes, zone);
+            } else {
+                addSlots(result, date.atTime(customStart), date.atTime(workEnd, 0), slotDurationMinutes, zone);
+            }
+        } else {
+            addSlots(result, date.atTime(workStart, 0), morningEnd, slotDurationMinutes, zone);
+            addSlots(result, date.atTime(lunchEndTime), date.atTime(workEnd, 0), slotDurationMinutes, zone);
+        }
+        return result;
+    }
+
+    private void addSlots(List<Slot> out, LocalDateTime segStart, LocalDateTime segEnd, int periodMinutes, ZoneId zone) {
+        LocalDateTime current = segStart;
+        while (!current.plusMinutes(periodMinutes).isAfter(segEnd)) {
+            LocalDateTime slotEnd = current.plusMinutes(periodMinutes);
+            out.add(new Slot(current.atZone(zone).toInstant(), slotEnd.atZone(zone).toInstant()));
+            current = slotEnd;
+        }
     }
 }

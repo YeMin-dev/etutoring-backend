@@ -1,31 +1,4 @@
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: yemindev/etutoring-backend:1.5.0
-    container_name: eTutoring-backend
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "8080:8081"
-    environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required. Set in .env or environment.}
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/eTutoring}
-      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-eTutoring}
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-eTutoring_pw}
-      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-mailpit}
-      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-1025}
-      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
-      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
-      SPRING_MAIL_FROM: ${SPRING_MAIL_FROM:-}
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:-false}
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:-false}
-      APP_PASSWORD_RESET_BASE_URL: ${APP_PASSWORD_RESET_BASE_URL:-http://localhost:3000}
-
   postgres:
     image: postgres:18.2
     container_name: eTutoring-postgres

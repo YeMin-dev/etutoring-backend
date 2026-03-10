@@ -1,7 +1,9 @@
 package com.a9.etutoring.controller;
 
 import com.a9.etutoring.domain.dto.allocation.AllocationCreateRequest;
+import com.a9.etutoring.domain.dto.allocation.AllocationPreviewRequest;
 import com.a9.etutoring.domain.dto.allocation.AllocationUpdateRequest;
+import com.a9.etutoring.domain.dto.allocation.BulkAllocationPreviewResponse;
 import com.a9.etutoring.domain.dto.allocation.BulkAllocationRequest;
 import com.a9.etutoring.domain.dto.allocation.TutorAllocationResponse;
 import com.a9.etutoring.service.TutorAllocationService;
@@ -55,6 +57,11 @@ public class AdminTutorAllocationController {
     @PostMapping("/allocations/bulk")
     public List<TutorAllocationResponse> createBulk(@Valid @RequestBody BulkAllocationRequest request) {
         return tutorAllocationService.allocateBulk(request);
+    }
+
+    @PostMapping("/allocations/preview")
+    public BulkAllocationPreviewResponse previewBulk(@Valid @RequestBody AllocationPreviewRequest request) {
+        return tutorAllocationService.previewBulkAllocation(request);
     }
 
     @PostMapping("/allocations/{id}/undo")
