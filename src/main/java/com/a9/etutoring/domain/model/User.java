@@ -55,6 +55,9 @@ public class User {
     @Column(name = "last_login_date")
     private Instant lastLoginDate;
 
+    @Column(name = "last_interaction_date")
+    private Instant lastInteractionDate;
+
     @Column(name = "deleted_date")
     private Instant deletedDate;
 
@@ -152,6 +155,14 @@ public class User {
 
     public void setLastLoginDate(Instant lastLoginDate) {
         this.lastLoginDate = lastLoginDate;
+    }
+
+    public Instant getLastInteractionDate() {
+        return lastInteractionDate;
+    }
+
+    public void setLastInteractionDate(Instant lastInteractionDate) {
+        this.lastInteractionDate = lastInteractionDate;
     }
 
     public Instant getDeletedDate() {
