@@ -25,6 +25,10 @@ public class EmailService {
 
     @Async
     public void sendEmail(String to, String subject, String body) {
+        if (from == null || from.isBlank()) {
+            logger.debug("Skipping email to {} (spring.mail.from not set)", to);
+            return;
+        }
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(from);

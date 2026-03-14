@@ -7,6 +7,7 @@ import com.a9.etutoring.domain.dto.allocation.AllocationUpdateRequest;
 import com.a9.etutoring.domain.dto.allocation.BulkAllocationPreviewResponse;
 import com.a9.etutoring.domain.dto.allocation.BulkAllocationRequest;
 import com.a9.etutoring.domain.dto.allocation.TutorAllocationResponse;
+import com.a9.etutoring.domain.dto.user.UserResponse;
 import com.a9.etutoring.domain.enums.UserRole;
 import com.a9.etutoring.domain.model.TutorAllocation;
 import com.a9.etutoring.domain.model.User;
@@ -135,6 +136,13 @@ public class TutorAllocationServiceImpl implements TutorAllocationService {
             }
         }
         return ZoneId.systemDefault();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> listAllocatedStudentsForTutor(UUID tutorId) {
+        List<User> students = tutorAllocationRepository.findDistinctStudentsByTutorIdAndEndedDateIsNull(tutorId);
+        return students.stream().map(this::toUserResponse).toList();
     }
 
     @Override
@@ -271,6 +279,22 @@ public class TutorAllocationServiceImpl implements TutorAllocationService {
             a.getReason(),
             a.getScheduleStart(),
             a.getScheduleEnd()
+        );
+    }
+
+    private UserResponse toUserResponse(User user) {
+        return new UserResponse(
+            user.getId(),
+            user.getRole(),
+            user.getUsername(),
+            user.getFirstName(),
+            user.getLastName(),
+            user.getEmail(),
+            user.getIsActive(),
+            user.getIsLocked(),
+            user.getCreatedDate(),
+            user.getUpdatedDate(),
+            user.getLastLoginDate()
         );
     }
 

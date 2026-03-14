@@ -1,6 +1,7 @@
 package com.a9.etutoring.repository;
 
 import com.a9.etutoring.domain.model.TutorAllocation;
+import com.a9.etutoring.domain.model.User;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +12,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface TutorAllocationRepository extends JpaRepository<TutorAllocation, UUID> {
+
+    @Query("""
+        SELECT DISTINCT ta.student FROM TutorAllocation ta
+        WHERE ta.tutor.id = :tutorId AND ta.endedDate IS NULL
+        AND (ta.scheduleEnd IS NULL OR ta.scheduleEnd >= CURRENT_TIMESTAMP)
+        ORDER BY ta.student.username
+        """)
+    List<User> findDistinctStudentsByTutorIdAndEndedDateIsNull(@Param("tutorId") UUID tutorId);
 
     @Query("""
         SELECT ta FROM TutorAllocation ta

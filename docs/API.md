@@ -646,6 +646,27 @@ Common errors:
 
 ---
 
+## TutorAllocationController (Tutor allocations)
+
+Base path: `/api/tutor`
+
+All endpoints require **TUTOR** or **ADMIN** role. Allocation data is scoped to the authenticated user as the tutor.
+
+### GET `/api/tutor/allocated-students`
+
+List of students currently allocated to the authenticated tutor (active allocations only; `endedDate` is null). Allocations whose `scheduleEnd` has already passed are excluded, so only students with at least one allocation that is still current (no schedule end or schedule end in the future) are returned. Each student appears once even if they have multiple such allocation slots. Response uses the same user shape as admin user endpoints.
+
+- Auth: Required (TUTOR or ADMIN)
+- Status: `200 OK`
+
+Success response: array of user objects (same shape as `GET /api/admin/users/{id}`: `id`, `role`, `username`, `firstName`, `lastName`, `email`, `isActive`, `isLocked`, `createdDate`, `updatedDate`, `lastLoginDate`).
+
+Common errors:
+
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+---
+
 ## TutorMeetingController (Meetings)
 
 Base path: `/api/tutor`
