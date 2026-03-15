@@ -1,6 +1,6 @@
 package com.a9.etutoring.controller;
 
-import com.a9.etutoring.domain.dto.user.UserResponse;
+import com.a9.etutoring.domain.dto.allocation.AllocatedStudentResponse;
 import com.a9.etutoring.exception.UnauthorizedException;
 import com.a9.etutoring.security.UserPrincipal;
 import com.a9.etutoring.service.TutorAllocationService;
@@ -22,7 +22,7 @@ public class TutorAllocationController {
     }
 
     @GetMapping("/allocated-students")
-    public List<UserResponse> listAllocatedStudents(@AuthenticationPrincipal UserPrincipal principal) {
+    public List<AllocatedStudentResponse> listAllocatedStudents(@AuthenticationPrincipal UserPrincipal principal) {
         UUID tutorId = requirePrincipal(principal);
         return tutorAllocationService.listAllocatedStudentsForTutor(tutorId);
     }

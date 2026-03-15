@@ -654,12 +654,14 @@ All endpoints require **TUTOR** or **ADMIN** role. Allocation data is scoped to 
 
 ### GET `/api/tutor/allocated-students`
 
-List of students currently allocated to the authenticated tutor (active allocations only; `endedDate` is null). Allocations whose `scheduleEnd` has already passed are excluded, so only students with at least one allocation that is still current (no schedule end or schedule end in the future) are returned. Each student appears once even if they have multiple such allocation slots. Response uses the same user shape as admin user endpoints.
+List of students currently allocated to the authenticated tutor (active allocations only; `endedDate` is null). Allocations whose `scheduleEnd` has already passed are excluded. Each item includes the student (same shape as admin user) and that student’s allocation date ranges (`allocationSlots`) so the frontend can validate meeting start/end against them.
 
 - Auth: Required (TUTOR or ADMIN)
 - Status: `200 OK`
 
-Success response: array of user objects (same shape as `GET /api/admin/users/{id}`: `id`, `role`, `username`, `firstName`, `lastName`, `email`, `isActive`, `isLocked`, `createdDate`, `updatedDate`, `lastLoginDate`).
+Success response: array of objects with:
+- `student`: user object (same shape as `GET /api/admin/users/{id}`: `id`, `role`, `username`, `firstName`, `lastName`, `email`, `isActive`, `isLocked`, `createdDate`, `updatedDate`, `lastLoginDate`).
+- `allocationSlots`: array of `{ scheduleStart, scheduleEnd }` (same date format as other allocation endpoints). Each slot is one allocation window; meeting start/end must fall within one of these ranges.
 
 Common errors:
 
