@@ -756,6 +756,7 @@ Common errors:
 - `400 VALIDATION_ERROR`
 - `400 ONLY_TUTORS_CAN_ARRANGE` (non-tutor user attempts to create)
 - `400 INVALID_SCHEDULE` (endDate before startDate)
+- `400 MEETING_NOT_WITHIN_ALLOCATION` (meeting window must fall inside an allocation slot for this tutor–student pair)
 - `400 MEETING_OVERLAP` (tutor already has a meeting in this time range)
 - `400 INVALID_STUDENT` (user is not a student)
 - `404 USER_NOT_FOUND`
@@ -791,6 +792,7 @@ Common errors:
 
 - `400 VALIDATION_ERROR`
 - `400 INVALID_SCHEDULE` (endDate before startDate after update)
+- `400 MEETING_NOT_WITHIN_ALLOCATION` (meeting window must fall inside an allocation slot for this tutor–student pair)
 - `400 MEETING_OVERLAP` (tutor already has another meeting in this time range)
 - `404 MEETING_NOT_FOUND`
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
@@ -826,6 +828,7 @@ Common errors:
 - `ONLY_ONE_ADMIN_ALLOWED` -> `400` (create/update user with role ADMIN when an admin already exists)
 - `MEETING_NOT_FOUND` -> `404` (meetings: meeting not found or not owned by current tutor)
 - `ONLY_TUTORS_CAN_ARRANGE` -> `400` (meetings: only tutors can create meetings)
+- `MEETING_NOT_WITHIN_ALLOCATION` -> `400` (meetings: meeting must fall within an allocation slot for this tutor–student pair)
 - `MEETING_OVERLAP` -> `400` (meetings: tutor already has a meeting in this time range)
 - `ALLOCATION_NOT_FOUND` -> `404`
 - `ALLOCATION_ALREADY_ENDED` -> `400` (undo: allocation already ended)

@@ -56,6 +56,19 @@ public interface TutorAllocationRepository extends JpaRepository<TutorAllocation
         @Param("exclusionAllocationId") UUID exclusionAllocationId
     );
 
+    @Query("""
+        SELECT ta FROM TutorAllocation ta
+        WHERE ta.tutor.id = :tutorId AND ta.student.id = :studentId AND ta.endedDate IS NULL
+        AND ta.scheduleStart IS NOT NULL AND ta.scheduleEnd IS NOT NULL
+        AND ta.scheduleStart <= :meetingStart AND ta.scheduleEnd >= :meetingEnd
+        """)
+    List<TutorAllocation> findByTutorAndStudentWithScheduleContaining(
+        @Param("tutorId") UUID tutorId,
+        @Param("studentId") UUID studentId,
+        @Param("meetingStart") Instant meetingStart,
+        @Param("meetingEnd") Instant meetingEnd
+    );
+
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"student", "tutor", "allocatedBy"})
     @Query("""
         SELECT ta FROM TutorAllocation ta

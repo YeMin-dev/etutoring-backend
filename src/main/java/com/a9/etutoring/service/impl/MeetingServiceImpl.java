@@ -5,10 +5,12 @@ import com.a9.etutoring.domain.dto.meeting.MeetingResponse;
 import com.a9.etutoring.domain.dto.meeting.MeetingUpdateRequest;
 import com.a9.etutoring.domain.enums.UserRole;
 import com.a9.etutoring.domain.model.Meeting;
+import com.a9.etutoring.domain.model.TutorAllocation;
 import com.a9.etutoring.domain.model.User;
 import com.a9.etutoring.exception.BadRequestException;
 import com.a9.etutoring.exception.ResourceNotFoundException;
 import com.a9.etutoring.repository.MeetingRepository;
+import com.a9.etutoring.repository.TutorAllocationRepository;
 import com.a9.etutoring.repository.UserRepository;
 import com.a9.etutoring.service.EmailService;
 import com.a9.etutoring.service.MeetingService;
@@ -32,13 +34,16 @@ public class MeetingServiceImpl implements MeetingService {
 
     private final MeetingRepository meetingRepository;
     private final UserRepository userRepository;
+    private final TutorAllocationRepository tutorAllocationRepository;
     private final EmailService emailService;
 
     public MeetingServiceImpl(MeetingRepository meetingRepository,
                               UserRepository userRepository,
+                              TutorAllocationRepository tutorAllocationRepository,
                               EmailService emailService) {
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
+        this.tutorAllocationRepository = tutorAllocationRepository;
         this.emailService = emailService;
     }
 
@@ -57,6 +62,7 @@ public class MeetingServiceImpl implements MeetingService {
         if (student.getRole() != UserRole.STUDENT) {
             throw new BadRequestException("INVALID_STUDENT", "User is not a student");
         }
+        checkMeetingWithinAllocation(currentUserId, student.getId(), request.startDate(), request.endDate());
         checkMeetingOverlap(currentUserId, request.startDate(), request.endDate(), null);
 
         Meeting meeting = new Meeting();
@@ -110,6 +116,7 @@ public class MeetingServiceImpl implements MeetingService {
         if (meeting.getEndDate().isBefore(meeting.getStartDate())) {
             throw new BadRequestException("INVALID_SCHEDULE", "endDate must be after or equal to startDate");
         }
+        checkMeetingWithinAllocation(meeting.getTutor().getId(), meeting.getStudent().getId(), meeting.getStartDate(), meeting.getEndDate());
         checkMeetingOverlap(currentUserId, meeting.getStartDate(), meeting.getEndDate(), meeting.getId());
         meeting.setUpdatedDate(Instant.now());
         Meeting saved = meetingRepository.save(meeting);
@@ -123,6 +130,14 @@ public class MeetingServiceImpl implements MeetingService {
             .orElseThrow(() -> new ResourceNotFoundException("MEETING_NOT_FOUND", "Meeting not found"));
         sendMeetingCancelledEmail(meeting.getStudent(), meeting);
         meetingRepository.delete(meeting);
+    }
+
+    private void checkMeetingWithinAllocation(UUID tutorId, UUID studentId, Instant meetingStart, Instant meetingEnd) {
+        List<TutorAllocation> containing = tutorAllocationRepository.findByTutorAndStudentWithScheduleContaining(
+            tutorId, studentId, meetingStart, meetingEnd);
+        if (containing.isEmpty()) {
+            throw new BadRequestException("MEETING_NOT_WITHIN_ALLOCATION", "Meeting must fall within an allocation slot for this student");
+        }
     }
 
     private void checkMeetingOverlap(UUID tutorId, Instant startDate, Instant endDate, UUID exclusionMeetingId) {
