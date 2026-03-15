@@ -1,6 +1,8 @@
 package com.a9.etutoring.service.impl;
 
+import com.a9.etutoring.domain.dto.allocation.AllocatedStudentResponse;
 import com.a9.etutoring.domain.dto.allocation.AllocationCreateRequest;
+import com.a9.etutoring.domain.dto.allocation.AllocationSlotResponse;
 import com.a9.etutoring.domain.dto.allocation.AllocationPreviewItemResponse;
 import com.a9.etutoring.domain.dto.allocation.AllocationPreviewRequest;
 import com.a9.etutoring.domain.dto.allocation.AllocationUpdateRequest;
@@ -29,7 +31,9 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,9 +144,22 @@ public class TutorAllocationServiceImpl implements TutorAllocationService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<UserResponse> listAllocatedStudentsForTutor(UUID tutorId) {
-        List<User> students = tutorAllocationRepository.findDistinctStudentsByTutorIdAndEndedDateIsNull(tutorId);
-        return students.stream().map(this::toUserResponse).toList();
+    public List<AllocatedStudentResponse> listAllocatedStudentsForTutor(UUID tutorId) {
+        List<TutorAllocation> allocations = tutorAllocationRepository.findActiveAllocationsByTutorIdWithCurrentSchedule(tutorId);
+        Map<UUID, List<AllocationSlotResponse>> studentIdToSlots = new LinkedHashMap<>();
+        Map<UUID, User> studentIdToUser = new LinkedHashMap<>();
+        for (TutorAllocation a : allocations) {
+            UUID studentId = a.getStudent().getId();
+            studentIdToUser.putIfAbsent(studentId, a.getStudent());
+            studentIdToSlots.computeIfAbsent(studentId, k -> new ArrayList<>())
+                .add(new AllocationSlotResponse(a.getScheduleStart(), a.getScheduleEnd()));
+        }
+        return studentIdToUser.entrySet().stream()
+            .map(e -> new AllocatedStudentResponse(
+                toUserResponse(e.getValue()),
+                studentIdToSlots.get(e.getKey())
+            ))
+            .toList();
     }
 
     @Override
