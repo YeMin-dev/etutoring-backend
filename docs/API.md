@@ -654,12 +654,14 @@ All endpoints require **TUTOR** or **ADMIN** role. Allocation data is scoped to 
 
 ### GET `/api/tutor/allocated-students`
 
-List of students currently allocated to the authenticated tutor (active allocations only; `endedDate` is null). Allocations whose `scheduleEnd` has already passed are excluded, so only students with at least one allocation that is still current (no schedule end or schedule end in the future) are returned. Each student appears once even if they have multiple such allocation slots. Response uses the same user shape as admin user endpoints.
+List of students currently allocated to the authenticated tutor (active allocations only; `endedDate` is null). Allocations whose `scheduleEnd` has already passed are excluded. Each item includes the student (same shape as admin user) and that student’s allocation date ranges (`allocationSlots`) so the frontend can validate meeting start/end against them.
 
 - Auth: Required (TUTOR or ADMIN)
 - Status: `200 OK`
 
-Success response: array of user objects (same shape as `GET /api/admin/users/{id}`: `id`, `role`, `username`, `firstName`, `lastName`, `email`, `isActive`, `isLocked`, `createdDate`, `updatedDate`, `lastLoginDate`).
+Success response: array of objects with:
+- `student`: user object (same shape as `GET /api/admin/users/{id}`: `id`, `role`, `username`, `firstName`, `lastName`, `email`, `isActive`, `isLocked`, `createdDate`, `updatedDate`, `lastLoginDate`).
+- `allocationSlots`: array of `{ scheduleStart, scheduleEnd }` (same date format as other allocation endpoints). Each slot is one allocation window; meeting start/end must fall within one of these ranges.
 
 Common errors:
 
@@ -754,6 +756,7 @@ Common errors:
 - `400 VALIDATION_ERROR`
 - `400 ONLY_TUTORS_CAN_ARRANGE` (non-tutor user attempts to create)
 - `400 INVALID_SCHEDULE` (endDate before startDate)
+- `400 MEETING_NOT_WITHIN_ALLOCATION` (meeting window must fall inside an allocation slot for this tutor–student pair)
 - `400 MEETING_OVERLAP` (tutor already has a meeting in this time range)
 - `400 INVALID_STUDENT` (user is not a student)
 - `404 USER_NOT_FOUND`
@@ -789,6 +792,7 @@ Common errors:
 
 - `400 VALIDATION_ERROR`
 - `400 INVALID_SCHEDULE` (endDate before startDate after update)
+- `400 MEETING_NOT_WITHIN_ALLOCATION` (meeting window must fall inside an allocation slot for this tutor–student pair)
 - `400 MEETING_OVERLAP` (tutor already has another meeting in this time range)
 - `404 MEETING_NOT_FOUND`
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
@@ -809,6 +813,48 @@ Common errors:
 
 ---
 
+## StudentMeetingController (Meetings)
+
+Base path: `/api/student`
+
+Endpoints require **STUDENT** or **ADMIN** role. Students can only access meetings where they are the student.
+
+### GET `/api/student/meetings`
+
+Paged list of meetings for the authenticated student (meetings where student_user_id is the current user), sorted by startDate descending.
+
+- Auth: Required (STUDENT or ADMIN)
+- Status: `200 OK`
+
+Query params:
+
+- `page` (optional): 0-based page index; default `0`.
+- `size` (optional): Page size; default `20`, max `100`.
+
+Success response: JSON object with pagination metadata and `content` array of meeting objects (same shape as single meeting in `GET /api/student/meetings/{id}`).
+
+Common errors:
+
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### GET `/api/student/meetings/{id}`
+
+Get one meeting by ID. Allowed only if the meeting’s student is the authenticated user.
+
+- Auth: Required (STUDENT or ADMIN)
+- Status: `200 OK`
+
+Path param: `id` (UUID)
+
+Success response: same shape as `GET /api/tutor/meetings/{id}` (see TutorMeetingController).
+
+Common errors:
+
+- `404 MEETING_NOT_FOUND` (meeting not found or not the current user’s as student)
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+---
+
 ## Global Error Codes (Current)
 
 - `VALIDATION_ERROR` -> `400`
@@ -822,8 +868,9 @@ Common errors:
 - `USER_NOT_FOUND` -> `404`
 - `ADMIN_NOT_FOUND` -> `404` (GET admin-user: no admin user exists)
 - `ONLY_ONE_ADMIN_ALLOWED` -> `400` (create/update user with role ADMIN when an admin already exists)
-- `MEETING_NOT_FOUND` -> `404` (meetings: meeting not found or not owned by current tutor)
+- `MEETING_NOT_FOUND` -> `404` (meetings: meeting not found or not owned by current tutor / or not the student’s meeting for student GET)
 - `ONLY_TUTORS_CAN_ARRANGE` -> `400` (meetings: only tutors can create meetings)
+- `MEETING_NOT_WITHIN_ALLOCATION` -> `400` (meetings: meeting must fall within an allocation slot for this tutor–student pair)
 - `MEETING_OVERLAP` -> `400` (meetings: tutor already has a meeting in this time range)
 - `ALLOCATION_NOT_FOUND` -> `404`
 - `ALLOCATION_ALREADY_ENDED` -> `400` (undo: allocation already ended)

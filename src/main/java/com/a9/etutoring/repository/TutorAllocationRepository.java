@@ -21,6 +21,15 @@ public interface TutorAllocationRepository extends JpaRepository<TutorAllocation
         """)
     List<User> findDistinctStudentsByTutorIdAndEndedDateIsNull(@Param("tutorId") UUID tutorId);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"student"})
+    @Query("""
+        SELECT ta FROM TutorAllocation ta
+        WHERE ta.tutor.id = :tutorId AND ta.endedDate IS NULL
+        AND (ta.scheduleEnd IS NULL OR ta.scheduleEnd >= CURRENT_TIMESTAMP)
+        ORDER BY ta.student.username, ta.scheduleStart
+        """)
+    List<TutorAllocation> findActiveAllocationsByTutorIdWithCurrentSchedule(@Param("tutorId") UUID tutorId);
+
     @Query("""
         SELECT ta FROM TutorAllocation ta
         WHERE ta.tutor.id = :tutorId AND ta.endedDate IS NULL
@@ -45,6 +54,19 @@ public interface TutorAllocationRepository extends JpaRepository<TutorAllocation
         @Param("scheduleStart") Instant scheduleStart,
         @Param("scheduleEnd") Instant scheduleEnd,
         @Param("exclusionAllocationId") UUID exclusionAllocationId
+    );
+
+    @Query("""
+        SELECT ta FROM TutorAllocation ta
+        WHERE ta.tutor.id = :tutorId AND ta.student.id = :studentId AND ta.endedDate IS NULL
+        AND ta.scheduleStart IS NOT NULL AND ta.scheduleEnd IS NOT NULL
+        AND ta.scheduleStart <= :meetingStart AND ta.scheduleEnd >= :meetingEnd
+        """)
+    List<TutorAllocation> findByTutorAndStudentWithScheduleContaining(
+        @Param("tutorId") UUID tutorId,
+        @Param("studentId") UUID studentId,
+        @Param("meetingStart") Instant meetingStart,
+        @Param("meetingEnd") Instant meetingEnd
     );
 
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"student", "tutor", "allocatedBy"})
