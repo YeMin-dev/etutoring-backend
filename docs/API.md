@@ -809,6 +809,126 @@ Common errors:
 
 ---
 
+## ConversationController (Chat)
+
+Base path: `/api/conversations`
+
+REST-based chat between students and tutors. Requires **STUDENT**, **TUTOR**, or **ADMIN**. There is **one conversation per tutor–student pair**; creating with the same pair returns the existing conversation (no new one is created). Caller must be the tutor or student. Only participants can access a conversation.
+
+### POST `/api/conversations`
+
+Ensure a conversation exists for the given tutor–student pair. Caller must be either the tutor or the student. If a conversation already exists for that pair, it is returned (no new one is created).
+
+- Auth: Required (STUDENT, TUTOR, or ADMIN)
+- Status: `201 Created` when a new conversation is created; `200 OK` when the conversation for that pair already exists
+
+Request body:
+
+```json
+{
+  "tutorUserId": "uuid",
+  "studentUserId": "uuid"
+}
+```
+
+Success response: `ConversationResponse` (see GET by id).
+
+Common errors:
+
+- `403 NOT_PARTICIPANT` (caller is not the tutor or student)
+- `404 USER_NOT_FOUND` (tutor or student user not found)
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### GET `/api/conversations`
+
+Paged list of conversations for the authenticated user (where they are student or tutor). Sorted by `createdDate` descending.
+
+- Auth: Required (STUDENT, TUTOR, or ADMIN)
+- Status: `200 OK`
+
+Query params: `page` (default 0), `size` (default 20, max 100).
+
+Success response: Paginated object with `content` array of `ConversationResponse`.
+
+### GET `/api/conversations/{conversationId}`
+
+Get one conversation. Caller must be the student or tutor of the conversation.
+
+- Auth: Required (STUDENT, TUTOR, or ADMIN)
+- Status: `200 OK`
+
+Path param: `conversationId` (UUID)
+
+Success response:
+
+```json
+{
+  "id": "uuid",
+  "studentUserId": "uuid",
+  "tutorUserId": "uuid",
+  "createdDate": "dd/MM/yyyy HH:mm"
+}
+```
+
+Common errors:
+
+- `404 CONVERSATION_NOT_FOUND`
+- `403 FORBIDDEN` (not a participant)
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### GET `/api/conversations/{conversationId}/messages`
+
+Paged list of messages in a conversation. Caller must be a participant. Ordered by `createdDate` ascending.
+
+- Auth: Required (STUDENT, TUTOR, or ADMIN)
+- Status: `200 OK`
+
+Path param: `conversationId` (UUID). Query params: `page` (default 0), `size` (default 50, max 100).
+
+Success response: Paginated object with `content` array of message objects: `id`, `conversationId`, `senderUserId`, `body`, `createdDate`, `readDate`.
+
+### POST `/api/conversations/{conversationId}/messages`
+
+Send a message. Caller must be a participant.
+
+- Auth: Required (STUDENT, TUTOR, or ADMIN)
+- Status: `201 Created`
+
+Path param: `conversationId` (UUID)
+
+Request body:
+
+```json
+{
+  "body": "Message text (max 10000 chars)"
+}
+```
+
+Success response: `MessageResponse` (id, conversationId, senderUserId, body, createdDate, readDate).
+
+Common errors:
+
+- `404 CONVERSATION_NOT_FOUND`
+- `403 FORBIDDEN` (not a participant)
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### PATCH `/api/conversations/{conversationId}/read`
+
+Mark all messages in the conversation sent by the **other** participant as read. Call when the current user opens the conversation. The backend uses the logged-in user and conversation to determine the other participant (the sender whose messages to mark); sets `read_date` on all their messages in this conversation that were unread.
+
+- Auth: Required (STUDENT, TUTOR, or ADMIN)
+- Status: `204 No Content`
+
+Path param: `conversationId` (UUID). No request body.
+
+Common errors:
+
+- `404 CONVERSATION_NOT_FOUND`
+- `403 FORBIDDEN` (not a participant)
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+---
+
 ## Global Error Codes (Current)
 
 - `VALIDATION_ERROR` -> `400`
@@ -826,6 +946,8 @@ Common errors:
 - `ONLY_TUTORS_CAN_ARRANGE` -> `400` (meetings: only tutors can create meetings)
 - `MEETING_OVERLAP` -> `400` (meetings: tutor already has a meeting in this time range)
 - `ALLOCATION_NOT_FOUND` -> `404`
+- `CONVERSATION_NOT_FOUND` -> `404`
+- `NOT_PARTICIPANT` -> `403` (conversations: not the student or tutor of the allocation/conversation)
 - `ALLOCATION_ALREADY_ENDED` -> `400` (undo: allocation already ended)
 - `CANNOT_UPDATE_ENDED_ALLOCATION` -> `400` (PUT: cannot update ended allocation)
 - `NO_UPDATE_FIELDS` -> `400` (PUT: at least one field required)

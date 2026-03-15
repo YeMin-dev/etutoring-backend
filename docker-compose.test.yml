@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: yemindev/etutoring-backend:1.7.0
+    image: yemindev/etutoring-backend:1.9.0
     container_name: eTutoring-backend
     restart: unless-stopped
     depends_on:
