@@ -813,6 +813,48 @@ Common errors:
 
 ---
 
+## StudentMeetingController (Meetings)
+
+Base path: `/api/student`
+
+Endpoints require **STUDENT** or **ADMIN** role. Students can only access meetings where they are the student.
+
+### GET `/api/student/meetings`
+
+Paged list of meetings for the authenticated student (meetings where student_user_id is the current user), sorted by startDate descending.
+
+- Auth: Required (STUDENT or ADMIN)
+- Status: `200 OK`
+
+Query params:
+
+- `page` (optional): 0-based page index; default `0`.
+- `size` (optional): Page size; default `20`, max `100`.
+
+Success response: JSON object with pagination metadata and `content` array of meeting objects (same shape as single meeting in `GET /api/student/meetings/{id}`).
+
+Common errors:
+
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### GET `/api/student/meetings/{id}`
+
+Get one meeting by ID. Allowed only if the meeting’s student is the authenticated user.
+
+- Auth: Required (STUDENT or ADMIN)
+- Status: `200 OK`
+
+Path param: `id` (UUID)
+
+Success response: same shape as `GET /api/tutor/meetings/{id}` (see TutorMeetingController).
+
+Common errors:
+
+- `404 MEETING_NOT_FOUND` (meeting not found or not the current user’s as student)
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+---
+
 ## Global Error Codes (Current)
 
 - `VALIDATION_ERROR` -> `400`
@@ -826,7 +868,7 @@ Common errors:
 - `USER_NOT_FOUND` -> `404`
 - `ADMIN_NOT_FOUND` -> `404` (GET admin-user: no admin user exists)
 - `ONLY_ONE_ADMIN_ALLOWED` -> `400` (create/update user with role ADMIN when an admin already exists)
-- `MEETING_NOT_FOUND` -> `404` (meetings: meeting not found or not owned by current tutor)
+- `MEETING_NOT_FOUND` -> `404` (meetings: meeting not found or not owned by current tutor / or not the student’s meeting for student GET)
 - `ONLY_TUTORS_CAN_ARRANGE` -> `400` (meetings: only tutors can create meetings)
 - `MEETING_NOT_WITHIN_ALLOCATION` -> `400` (meetings: meeting must fall within an allocation slot for this tutor–student pair)
 - `MEETING_OVERLAP` -> `400` (meetings: tutor already has a meeting in this time range)

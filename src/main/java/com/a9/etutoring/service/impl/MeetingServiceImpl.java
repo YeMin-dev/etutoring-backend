@@ -95,8 +95,24 @@ public class MeetingServiceImpl implements MeetingService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<MeetingResponse> listForStudent(UUID currentUserId, Pageable pageable) {
+        Page<Meeting> page = meetingRepository.findByStudent_IdOrderByStartDateDesc(currentUserId, pageable);
+        List<MeetingResponse> content = page.getContent().stream().map(this::toResponse).toList();
+        return new PageImpl<>(content, page.getPageable(), page.getTotalElements());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public MeetingResponse getById(UUID currentUserId, UUID id) {
         Meeting meeting = meetingRepository.findByIdAndTutor_Id(id, currentUserId)
+            .orElseThrow(() -> new ResourceNotFoundException("MEETING_NOT_FOUND", "Meeting not found"));
+        return toResponse(meeting);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MeetingResponse getByIdForStudent(UUID currentUserId, UUID id) {
+        Meeting meeting = meetingRepository.findByIdAndStudent_Id(id, currentUserId)
             .orElseThrow(() -> new ResourceNotFoundException("MEETING_NOT_FOUND", "Meeting not found"));
         return toResponse(meeting);
     }

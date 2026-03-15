@@ -15,7 +15,11 @@ public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
 
     Page<Meeting> findByTutor_IdOrderByStartDateDesc(UUID tutorId, Pageable pageable);
 
+    Page<Meeting> findByStudent_IdOrderByStartDateDesc(UUID studentId, Pageable pageable);
+
     Optional<Meeting> findByIdAndTutor_Id(UUID id, UUID tutorId);
+
+    Optional<Meeting> findByIdAndStudent_Id(UUID id, UUID studentId);
 
     @Query("""
         SELECT m FROM Meeting m
