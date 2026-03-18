@@ -1,6 +1,7 @@
 package com.a9.etutoring.service.impl;
 
 import com.a9.etutoring.domain.dto.allocation.AllocatedStudentResponse;
+import com.a9.etutoring.domain.dto.allocation.AllocatedTutorResponse;
 import com.a9.etutoring.domain.dto.allocation.AllocationCreateRequest;
 import com.a9.etutoring.domain.dto.allocation.AllocationSlotResponse;
 import com.a9.etutoring.domain.dto.allocation.AllocationPreviewItemResponse;
@@ -158,6 +159,26 @@ public class TutorAllocationServiceImpl implements TutorAllocationService {
             .map(e -> new AllocatedStudentResponse(
                 toUserResponse(e.getValue()),
                 studentIdToSlots.get(e.getKey())
+            ))
+            .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AllocatedTutorResponse> listAllocatedTutorsForStudent(UUID studentId) {
+        List<TutorAllocation> allocations = tutorAllocationRepository.findActiveAllocationsByStudentIdWithCurrentSchedule(studentId);
+        Map<UUID, List<AllocationSlotResponse>> tutorIdToSlots = new LinkedHashMap<>();
+        Map<UUID, User> tutorIdToUser = new LinkedHashMap<>();
+        for (TutorAllocation a : allocations) {
+            UUID tutorId = a.getTutor().getId();
+            tutorIdToUser.putIfAbsent(tutorId, a.getTutor());
+            tutorIdToSlots.computeIfAbsent(tutorId, k -> new ArrayList<>())
+                .add(new AllocationSlotResponse(a.getScheduleStart(), a.getScheduleEnd()));
+        }
+        return tutorIdToUser.entrySet().stream()
+            .map(e -> new AllocatedTutorResponse(
+                toUserResponse(e.getValue()),
+                tutorIdToSlots.get(e.getKey())
             ))
             .toList();
     }

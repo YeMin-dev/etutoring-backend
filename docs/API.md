@@ -813,6 +813,27 @@ Common errors:
 
 ---
 
+## StudentAllocationController (Allocations)
+
+Base path: `/api/student`
+
+### GET `/api/student/allocated-tutors`
+
+List of tutors currently allocated to the authenticated student (active allocations only; `endedDate` is null). Allocations whose `scheduleEnd` has already passed are excluded. Each item includes the tutor (same shape as admin user response) and that tutor’s allocation date ranges (`allocationSlots`) for this student.
+
+- Auth: Required (STUDENT or ADMIN)
+- Status: `200 OK`
+
+Success response: array of objects with:
+- `tutor`: user object (same shape as `GET /api/admin/users/{id}`: `id`, `role`, `username`, `firstName`, `lastName`, `email`, `isActive`, `isLocked`, `createdDate`, `updatedDate`, `lastLoginDate`).
+- `allocationSlots`: array of `{ scheduleStart, scheduleEnd }` (same date format as other allocation endpoints). Each slot is one allocation window for this student–tutor pair.
+
+Common errors:
+
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+---
+
 ## StudentMeetingController (Meetings)
 
 Base path: `/api/student`

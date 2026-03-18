@@ -30,6 +30,15 @@ public interface TutorAllocationRepository extends JpaRepository<TutorAllocation
         """)
     List<TutorAllocation> findActiveAllocationsByTutorIdWithCurrentSchedule(@Param("tutorId") UUID tutorId);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"tutor"})
+    @Query("""
+        SELECT ta FROM TutorAllocation ta
+        WHERE ta.student.id = :studentId AND ta.endedDate IS NULL
+        AND (ta.scheduleEnd IS NULL OR ta.scheduleEnd >= CURRENT_TIMESTAMP)
+        ORDER BY ta.tutor.username, ta.scheduleStart
+        """)
+    List<TutorAllocation> findActiveAllocationsByStudentIdWithCurrentSchedule(@Param("studentId") UUID studentId);
+
     @Query("""
         SELECT ta FROM TutorAllocation ta
         WHERE ta.tutor.id = :tutorId AND ta.endedDate IS NULL

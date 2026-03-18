@@ -6,6 +6,7 @@ import com.a9.etutoring.domain.dto.allocation.AllocationUpdateRequest;
 import com.a9.etutoring.domain.dto.allocation.BulkAllocationPreviewResponse;
 import com.a9.etutoring.domain.dto.allocation.BulkAllocationRequest;
 import com.a9.etutoring.domain.dto.allocation.AllocatedStudentResponse;
+import com.a9.etutoring.domain.dto.allocation.AllocatedTutorResponse;
 import com.a9.etutoring.domain.dto.allocation.TutorAllocationResponse;
 import java.util.List;
 import java.util.UUID;
@@ -15,6 +16,8 @@ import org.springframework.data.domain.Pageable;
 public interface TutorAllocationService {
 
     List<AllocatedStudentResponse> listAllocatedStudentsForTutor(UUID tutorId);
+
+    List<AllocatedTutorResponse> listAllocatedTutorsForStudent(UUID studentId);
 
     TutorAllocationResponse allocate(AllocationCreateRequest request);
 
