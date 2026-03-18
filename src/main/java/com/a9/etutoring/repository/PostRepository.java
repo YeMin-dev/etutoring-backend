@@ -2,6 +2,7 @@ package com.a9.etutoring.repository;
 
 import com.a9.etutoring.domain.model.Post;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,18 +14,22 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
         """
         select p
         from Post p
-        where p.createdBy.deletedDate is null
+        where p.createdBy.deletedDate is null and p.deletedDate is null
         order by p.createdDate desc
         """
     )
     List<Post> findAllVisibleForStaff();
+
+    Optional<Post> findByIdAndDeletedDateIsNull(UUID id);
+
+    List<Post> findByCreatedBy_IdAndDeletedDateIsNullOrderByCreatedDateDesc(UUID createdById);
 
     @Query(
         """
         select distinct p
         from Post p
         left join p.targets t
-        where p.createdBy.deletedDate is null
+        where p.createdBy.deletedDate is null and p.deletedDate is null
           and (t.student.id = :studentId or t is null)
         order by p.createdDate desc
         """

@@ -22,7 +22,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 @Getter
 @Setter
@@ -52,9 +51,11 @@ public class Post {
     @Column(name = "created_date", nullable = false, updatable = false)
     private Instant createdDate;
 
-    @UpdateTimestamp
     @Column(name = "updated_date")
     private Instant updatedDate;
+
+    @Column(name = "deleted_date")
+    private Instant deletedDate;
 
     @Builder.Default
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)

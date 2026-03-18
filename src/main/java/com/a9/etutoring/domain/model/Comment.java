@@ -18,7 +18,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 @Getter
 @Setter
@@ -43,10 +42,6 @@ public class Comment {
     @JoinColumn(name = "author_user_id", nullable = false)
     private User authorUser;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "attachment_id")
-    private PostAttachment attachment;
-
     @Column(name = "comment", nullable = false, columnDefinition = "TEXT")
     @NotBlank
     @Size(max = 5000)
@@ -56,7 +51,6 @@ public class Comment {
     @Column(name = "created_date", nullable = false, updatable = false)
     private Instant createdDate;
 
-    @UpdateTimestamp
     @Column(name = "updated_date")
     private Instant updatedDate;
 }

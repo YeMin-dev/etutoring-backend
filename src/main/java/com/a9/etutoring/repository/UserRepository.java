@@ -7,6 +7,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,7 +25,17 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmailAndDeletedDateIsNull(String email);
 
+    Optional<User> findByPasswordResetTokenAndPasswordResetExpiresAtAfterAndDeletedDateIsNull(String token, Instant expiresAtAfter);
+
     List<User> findAllByDeletedDateIsNull();
+
+    Page<User> findAllByDeletedDateIsNullAndRole(UserRole role, Pageable pageable);
+
+    boolean existsByDeletedDateIsNullAndRole(UserRole role);
+
+    boolean existsByDeletedDateIsNullAndRoleAndIdNot(UserRole role, UUID id);
+
+    Optional<User> findFirstByDeletedDateIsNullAndRoleOrderByCreatedDateAsc(UserRole role);
 
     List<User> findAllByIdInAndDeletedDateIsNull(Collection<UUID> ids);
 

@@ -10,7 +10,7 @@ public record BlogPostResponse(
     String body,
     Instant createdDate,
     Instant updatedDate,
-    List<String> attachments,
+    List<AttachmentResponse> attachments,
     List<UUID> targetStudentIds,
     List<BlogCommentResponse> comments
 ) {

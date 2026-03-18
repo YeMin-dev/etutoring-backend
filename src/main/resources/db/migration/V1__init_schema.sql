@@ -19,9 +19,14 @@ CREATE TABLE IF NOT EXISTS users (
     created_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_date TIMESTAMPTZ,
     last_login_date TIMESTAMPTZ,
-    deleted_date TIMESTAMPTZ
+    deleted_date TIMESTAMPTZ,
+    password_reset_token VARCHAR(255),
+    password_reset_expires_at TIMESTAMPTZ
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_users_username ON users (username);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS ix_users_deleted_date ON users (deleted_date);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_users_password_reset_token
+    ON users (password_reset_token)
+    WHERE password_reset_token IS NOT NULL;
