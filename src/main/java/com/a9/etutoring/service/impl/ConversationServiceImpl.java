@@ -10,10 +10,12 @@ import com.a9.etutoring.domain.model.Message;
 import com.a9.etutoring.domain.model.User;
 import com.a9.etutoring.exception.ForbiddenException;
 import com.a9.etutoring.exception.ResourceNotFoundException;
+import com.a9.etutoring.domain.enums.UserRole;
 import com.a9.etutoring.repository.ConversationRepository;
 import com.a9.etutoring.repository.MessageRepository;
 import com.a9.etutoring.repository.UserRepository;
 import com.a9.etutoring.service.ConversationService;
+import com.a9.etutoring.service.EmailService;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -30,13 +32,16 @@ public class ConversationServiceImpl implements ConversationService {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     public ConversationServiceImpl(ConversationRepository conversationRepository,
                                    MessageRepository messageRepository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   EmailService emailService) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.userRepository = userRepository;
+        this.emailService = emailService;
     }
 
     @Override
@@ -106,6 +111,7 @@ public class ConversationServiceImpl implements ConversationService {
         m.setCreatedDate(Instant.now());
         m.setReadDate(null);
         Message saved = messageRepository.save(m);
+        notifyRecipient(c, sender, saved);
         return toMessageResponse(saved);
     }
 
@@ -116,6 +122,40 @@ public class ConversationServiceImpl implements ConversationService {
         ensureParticipant(c, currentUserId);
         UUID senderUserId = c.getStudent().getId().equals(currentUserId) ? c.getTutor().getId() : c.getStudent().getId();
         messageRepository.setReadDateByConversationAndSender(conversationId, senderUserId, Instant.now());
+    }
+
+    private void notifyRecipient(Conversation c, User sender, Message message) {
+        boolean senderIsStudent = sender.getRole() == UserRole.STUDENT;
+        User recipient = senderIsStudent ? c.getTutor() : c.getStudent();
+
+        if (!senderIsStudent) {
+            // Tutor sending to student — only email if this is the first unread message
+            long unreadCount = messageRepository.countByConversation_IdAndSender_IdAndReadDateIsNull(
+                c.getId(), sender.getId());
+            if (unreadCount > 1) {
+                return;
+            }
+        }
+
+        String senderName = buildFullName(sender);
+        String preview = message.getBody().length() > 100
+            ? message.getBody().substring(0, 100) + "..."
+            : message.getBody();
+        String body = String.format(
+            "Dear %s,\n\n%s sent you a message:\n\n\"%s\"\n\nBest regards,\neTutoring System",
+            buildFullName(recipient), senderName, preview);
+        emailService.sendEmail(recipient.getEmail(), "New message – eTutoring", body);
+    }
+
+    private String buildFullName(User user) {
+        if (user.getFirstName() != null && !user.getFirstName().isBlank()
+            && user.getLastName() != null && !user.getLastName().isBlank()) {
+            return user.getFirstName() + " " + user.getLastName();
+        }
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+        return user.getEmail();
     }
 
     private void ensureParticipant(Conversation c, UUID userId) {

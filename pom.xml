@@ -13,7 +13,7 @@
 
     <groupId>com.a9</groupId>
     <artifactId>etutoring</artifactId>
-    <version>1.9.1</version>
+    <version>1.10.0</version>
     <name>etutoring</name>
     <description>eTutoring backend bootstrap</description>
 
@@ -80,6 +80,11 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>0.12.6</version>
             <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>

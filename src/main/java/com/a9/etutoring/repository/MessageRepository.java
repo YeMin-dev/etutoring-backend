@@ -14,6 +14,8 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
 
     Page<Message> findByConversation_IdOrderByCreatedDateAsc(UUID conversationId, Pageable pageable);
 
+    long countByConversation_IdAndSender_IdAndReadDateIsNull(UUID conversationId, UUID senderId);
+
     @Modifying
     @Query("UPDATE Message m SET m.readDate = :readDate WHERE m.conversation.id = :conversationId AND m.sender.id = :senderId AND m.readDate IS NULL")
     int setReadDateByConversationAndSender(

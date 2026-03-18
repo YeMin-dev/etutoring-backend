@@ -79,6 +79,7 @@ public class AuthServiceImpl implements AuthService {
         user.setCreatedDate(now);
         user.setUpdatedDate(null);
         user.setLastLoginDate(null);
+        user.setLastInteractionDate(now);
         user.setDeletedDate(null);
 
         User saved = userRepository.save(user);
@@ -102,6 +103,7 @@ public class AuthServiceImpl implements AuthService {
             UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
 
             user.setLastLoginDate(Instant.now());
+            user.setLastInteractionDate(Instant.now());
             userRepository.save(user);
 
             String token = jwtService.generateToken(principal);

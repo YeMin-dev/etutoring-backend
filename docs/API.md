@@ -996,6 +996,207 @@ Common errors:
 
 ---
 
+## TutorBlogController (Blogs)
+
+Base path: `/api/tutor`
+
+Endpoints provide a simple announcement/blog feature where tutors can post updates, and students/tutors/admins can read them. Posts can optionally target specific students and include attachments; comments are text-only.
+
+### POST `/api/tutor/blogs`
+
+Create a new blog post.
+
+- Auth: Required (TUTOR)
+- Status: `201 Created`
+
+Request:
+
+- `multipart/form-data`
+  - Part `body` (string, required): Post text (max 5000 chars).
+  - Part `targetStudentIds` (optional, may appear multiple times): UUIDs of students to target. If omitted or empty, the system automatically targets all active allocated students for the tutor, based on allocation slots (`endedDate` is null and `scheduleEnd` is null or in the future). If there are no such allocations, the post has no student targets and is only visible to tutors/admins via staff views.
+  - Part `attachments` (optional, may appear multiple times): Files to upload and attach to the post (e.g. PDFs, images). Each file is stored and returned as a file name in `attachments`.
+
+Success response:
+
+- `BlogPostResponse` object (see below).
+
+Common errors:
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### PUT `/api/tutor/blogs/{id}`
+
+Edit an existing blog post, including attachments and targets.
+
+- Auth: Required (TUTOR)
+- Status: `200 OK`
+
+Path param:
+
+- `id` (UUID): Blog post id.
+
+Request:
+
+- `multipart/form-data`
+  - Part `body` (string, required): New post text (max 5000 chars).
+  - Part `targetStudentIds` (optional, may appear multiple times): New list of target student UUIDs. If present and non-empty, replaces the existing targets. If omitted or empty, targets are left unchanged.
+  - Part `attachments` (optional, may appear multiple times): New files to upload and attach in addition to any kept attachments.
+  - Field `keepAttachmentNames` (optional, may appear multiple times as a regular form field): List of existing attachment file names to keep. Any existing attachments whose file name is not included here are removed before adding new files. If this field is omitted or empty, all existing attachments are removed before adding new ones (if any).
+
+Success response:
+
+- Updated `BlogPostResponse` object.
+
+Common errors:
+
+- `400 VALIDATION_ERROR`
+- `404` (post not found or not visible to current user)
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### DELETE `/api/tutor/blogs/{id}`
+
+Soft-delete a blog post. Only the tutor who created the post can delete it.
+
+- Auth: Required (TUTOR)
+- Status: `204 No Content`
+
+Path param:
+
+- `id` (UUID): Blog post id.
+
+Success: The post is marked as deleted (`deleted_date` set). It no longer appears in list responses and get/update/comment on this post return 404.
+
+Common errors:
+
+- `404` (post not found or already deleted)
+- `403 FORBIDDEN` (not the post creator)
+- `401 UNAUTHORIZED`
+
+### POST `/api/tutor/blogs/{id}/comments`
+
+Add a comment to a blog post.
+
+- Auth: Required (TUTOR)
+- Status: `201 Created`
+
+Path param:
+
+- `id` (UUID): Blog post id.
+
+Request body:
+
+```json
+{
+  "comment": "Nice update!"
+}
+```
+
+Fields:
+
+- `comment` (string, required): Comment text (max 5000 chars).
+
+Success response:
+
+- `BlogCommentResponse`:
+
+```json
+{
+  "id": "d3b8fa5c-1b2c-4d5e-8f9a-1234567890ab",
+  "postId": "7d84ffd2-6g5j-8d3e-fh0g-1f0i119168gh",
+  "authorUserId": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
+  "comment": "Nice update!",
+  "createdDate": "15/03/2026 11:00",
+  "updatedDate": null
+}
+```
+
+Common errors:
+
+- `400 VALIDATION_ERROR`
+- `404` (post not found or not visible to current user)
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+### GET `/api/tutor/blogs`
+
+List blog posts visible to the authenticated user.
+
+- Auth: Required (STUDENT, TUTOR, or ADMIN)
+- Status: `200 OK`
+
+Behavior:
+
+- For tutors/admins: visible posts may include global posts and posts targeted to specific students.
+- For students: returns only posts either not targeted (global) or explicitly targeted to the current student.
+
+Success response:
+
+- Array of `BlogPostResponse` objects (same shape as above).
+
+Common errors:
+
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+---
+
+## InteractionReportController (Reports)
+
+Base path: `/api/admin/reports`
+
+Reports for platform usage and interaction; currently only exposes an inactive users report.
+
+### GET `/api/admin/reports/inactive-users`
+
+Generate a report of inactive students and tutors over a time window.
+
+- Auth: Required (ADMIN)
+- Status: `200 OK`
+
+Query params:
+
+- `days` (optional, integer): Threshold in days for inactivity; default `7`. Users whose last interaction was more than this many days ago are included.
+
+Success response:
+
+```json
+{
+  "daysThreshold": 7,
+  "generatedAt": "15/03/2026 12:00",
+  "students": [
+    {
+      "userId": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
+      "role": "STUDENT",
+      "username": "student1",
+      "firstName": "Stu",
+      "lastName": "Dent",
+      "email": "student1@example.com",
+      "lastInteractionDate": "01/03/2026 09:00",
+      "inactivityDays": 14
+    }
+  ],
+  "tutors": [
+    {
+      "userId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+      "role": "TUTOR",
+      "username": "tutor1",
+      "firstName": "Tu",
+      "lastName": "Tor",
+      "email": "tutor1@example.com",
+      "lastInteractionDate": "05/03/2026 10:00",
+      "inactivityDays": 10
+    }
+  ]
+}
+```
+
+This shape corresponds to `InactiveUsersReportResponse` containing lists of `InactiveUserResponse` for students and tutors.
+
+Common errors:
+
+- `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+---
+
 ## Global Error Codes (Current)
 
 - `VALIDATION_ERROR` -> `400`
