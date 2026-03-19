@@ -29,7 +29,7 @@ public class TutorBlogController {
     public BlogPostResponse createPost(
         @AuthenticationPrincipal UserPrincipal principal,
         @RequestPart("body") String body,
-        @RequestPart(value = "targetStudentIds", required = false) List<UUID> targetStudentIds,
+        @RequestParam(value = "targetStudentIds", required = false) List<UUID> targetStudentIds,
         @RequestPart(value = "attachments", required = false) List<MultipartFile> attachments
     ) {
         return blogService.createPost(principal.getId(), body, targetStudentIds, attachments);
@@ -40,7 +40,7 @@ public class TutorBlogController {
         @PathVariable UUID id,
         @AuthenticationPrincipal UserPrincipal principal,
         @RequestPart("body") String body,
-        @RequestPart(value = "targetStudentIds", required = false) List<UUID> targetStudentIds,
+        @RequestParam(value = "targetStudentIds", required = false) List<UUID> targetStudentIds,
         @RequestPart(value = "attachments", required = false) List<MultipartFile> attachments,
         @RequestParam(value = "keepAttachmentIds", required = false) List<UUID> keepAttachmentIds
     ) {
@@ -49,7 +49,6 @@ public class TutorBlogController {
 
     @DeleteMapping("/blogs/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasRole('TUTOR')")
     public void deletePost(
         @PathVariable UUID id,
         @AuthenticationPrincipal UserPrincipal principal
