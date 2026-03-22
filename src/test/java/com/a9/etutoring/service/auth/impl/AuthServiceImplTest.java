@@ -10,6 +10,7 @@ import com.a9.etutoring.exception.UnauthorizedException;
 import com.a9.etutoring.repository.UserRepository;
 import com.a9.etutoring.security.UserPrincipal;
 import com.a9.etutoring.security.jwt.JwtService;
+import com.a9.etutoring.service.EmailService;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,12 +44,16 @@ class AuthServiceImplTest {
     private AuthenticationManager authenticationManager;
     @Mock
     private JwtService jwtService;
+    @Mock
+    private EmailService emailService;
 
     private AuthServiceImpl authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthServiceImpl(userRepository, passwordEncoder, authenticationManager, jwtService);
+        authService = new AuthServiceImpl(
+            userRepository, passwordEncoder, authenticationManager, jwtService,
+            emailService, "http://localhost:3000");
     }
 
     @Test
