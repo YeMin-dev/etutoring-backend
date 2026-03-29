@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api/admin/allocations")
 public class AdminTutorAllocationController {
 
     private final TutorAllocationService tutorAllocationService;
@@ -37,7 +37,7 @@ public class AdminTutorAllocationController {
 
     private static final int MAX_PAGE_SIZE = 100;
 
-    @GetMapping("/allocations")
+    @GetMapping
     public Page<TutorAllocationResponse> list(
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size,
@@ -48,28 +48,28 @@ public class AdminTutorAllocationController {
         return tutorAllocationService.list(pageable, search);
     }
 
-    @PostMapping("/allocations")
+    @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TutorAllocationResponse create(@Valid @RequestBody AllocationCreateRequest request) {
         return tutorAllocationService.allocate(request);
     }
 
-    @PostMapping("/allocations/bulk")
+    @PostMapping("/bulk")
     public List<TutorAllocationResponse> createBulk(@Valid @RequestBody BulkAllocationRequest request) {
         return tutorAllocationService.allocateBulk(request);
     }
 
-    @PostMapping("/allocations/preview")
+    @PostMapping("/preview")
     public BulkAllocationPreviewResponse previewBulk(@Valid @RequestBody AllocationPreviewRequest request) {
         return tutorAllocationService.previewBulkAllocation(request);
     }
 
-    @PostMapping("/allocations/{id}/undo")
+    @PostMapping("/{id}/undo")
     public TutorAllocationResponse undo(@PathVariable UUID id) {
         return tutorAllocationService.undo(id);
     }
 
-    @PutMapping("/allocations/{id}")
+    @PutMapping("/{id}")
     public TutorAllocationResponse update(@PathVariable UUID id, @Valid @RequestBody AllocationUpdateRequest request) {
         return tutorAllocationService.update(id, request);
     }

@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/tutor")
+@RequestMapping("/api/tutor/meetings")
 public class TutorMeetingController {
 
     private final MeetingService meetingService;
@@ -37,7 +37,7 @@ public class TutorMeetingController {
 
     private static final int MAX_PAGE_SIZE = 100;
 
-    @GetMapping("/meetings")
+    @GetMapping
     public Page<MeetingResponse> list(
         @AuthenticationPrincipal UserPrincipal principal,
         @RequestParam(defaultValue = "0") int page,
@@ -49,12 +49,12 @@ public class TutorMeetingController {
         return meetingService.list(currentUserId, pageable);
     }
 
-    @GetMapping("/meetings/{id}")
+    @GetMapping("/{id}")
     public MeetingResponse getById(@AuthenticationPrincipal UserPrincipal principal, @PathVariable UUID id) {
         return meetingService.getById(requirePrincipal(principal), id);
     }
 
-    @PostMapping("/meetings")
+    @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public MeetingResponse create(
         @AuthenticationPrincipal UserPrincipal principal,
@@ -63,7 +63,7 @@ public class TutorMeetingController {
         return meetingService.create(requirePrincipal(principal), request);
     }
 
-    @PutMapping("/meetings/{id}")
+    @PutMapping("/{id}")
     public MeetingResponse update(
         @AuthenticationPrincipal UserPrincipal principal,
         @PathVariable UUID id,
@@ -72,7 +72,7 @@ public class TutorMeetingController {
         return meetingService.update(requirePrincipal(principal), id, request);
     }
 
-    @DeleteMapping("/meetings/{id}")
+    @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal UserPrincipal principal, @PathVariable UUID id) {
         meetingService.delete(requirePrincipal(principal), id);

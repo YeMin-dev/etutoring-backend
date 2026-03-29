@@ -13,7 +13,7 @@ This document covers all public API controllers.
   ```json
   { "code": "...", "message": "..." }
   ```
-- Date-time response format (for `Instant` fields): `dd/MM/yyyy HH:mm` (UTC)
+- Date-time response format (for `Instant` fields): `dd/MM/yyyy HH:mm` in **`app.default-time-zone`** (default `Asia/Yangon`; env `APP_DEFAULT_TIME_ZONE`)
 
 ## Authentication
 
@@ -547,7 +547,7 @@ Request body:
 Notes:
 
 - `date` (ISO-8601 date), `slotDurationMinutes` (positive integer), `tutorUserId`, and `studentUserIds` (non-empty, max 500) are required. `reason` is optional.
-- `timeZoneId` (optional): IANA time zone ID (e.g. `Asia/Yangon`). If omitted, server default is used. Slots are in this zone.
+- `timeZoneId` (optional): IANA time zone ID (e.g. `Asia/Yangon`). If omitted, **`app.default-time-zone`** is used. Slots are in this zone.
 - `startTime` (optional): Local time (e.g. `"10:30"` or `"10:45"`) on the given date in the request time zone. If set, slot generation starts from this time: the first slot begins at this time (e.g. 10:30–11:30). Morning slots still end by 12:00 (lunch); afternoon slots run from 13:00. If omitted, slots use the default work-day grid and only slots that start **after** the current time are returned.
 - Response `scheduleStart` and `scheduleEnd` are ISO-8601 strings with offset (e.g. `2026-03-10T10:00:00+06:30`) so times display correctly for the client and can be submitted to the bulk create API as-is.
 
@@ -1136,6 +1136,135 @@ Success response:
 Common errors:
 
 - `401 UNAUTHORIZED` / `403 FORBIDDEN`
+
+---
+
+## TutorAssignmentController (Assignments)
+
+Base path: `/api/tutor/assignments`
+
+Tutors create assignments with instructions and optional requirement files (stored as BLOBs). **No per-assignment target table**: any student with an **active allocation** to the tutor (`endedDate` is null and `scheduleEnd` is null or in the future) can see the assignment. Tutors can list submissions and set feedback (text only; students cannot reply). Application-wide local calendar: `app.default-time-zone` (see root `application.properties`).
+
+### POST `/api/tutor/assignments`
+
+- Auth: TUTOR
+- Status: `201 Created`
+- Content-Type: `multipart/form-data`
+
+| Part | Required | Description |
+|------|----------|-------------|
+| `title` | Yes | Max 255 chars |
+| `instructions` | Yes | Max 10000 chars |
+| `dueDate` | No | Text `dd/MM/yyyy HH:mm` (24-hour), e.g. `31/12/2026 23:59`. Parsed in **`app.default-time-zone`** (default `Asia/Yangon`, overridable via `APP_DEFAULT_TIME_ZONE`); stored as an absolute instant in the database (`TIMESTAMPTZ`). JSON `Instant` fields (including `dueDate`) are formatted as the same `dd/MM/yyyy HH:mm` in that zone. |
+| `attachments` | No | One or more files (requirement documents) |
+
+Success: `AssignmentResponse` (id, createdById, title, instructions, dueDate, createdDate, updatedDate, attachments: `{ id, fileName }[]`, `submissions`: always `[]` on create).
+
+### PUT `/api/tutor/assignments/{id}`
+
+- Auth: TUTOR (creator only)
+- Status: `200 OK`
+- Content-Type: `multipart/form-data`
+
+| Part / param | Required | Description |
+|--------------|----------|-------------|
+| `title`, `instructions` | Yes | Same limits as create |
+| `dueDate` | No | Same `dd/MM/yyyy HH:mm` format as create, or omit |
+| `keepAttachmentIds` | No | Query/form param; UUIDs of assignment attachments to keep. If omitted or empty, **all** requirement attachments are removed before new ones are added. |
+| `attachments` | No | New files to add |
+
+Success: `AssignmentResponse`; `submissions` is always `[]` on update (use GET `/{id}` for the full list).
+
+### DELETE `/api/tutor/assignments/{id}`
+
+- Auth: TUTOR (creator)
+- Status: `204 No Content`  
+Soft-deletes the assignment (hidden from lists; not found for students).
+
+### GET `/api/tutor/assignments`
+
+- Auth: TUTOR  
+- Status: `200 OK`  
+Returns `AssignmentSummaryResponse[]` (id, createdById, title, dueDate, createdDate, updatedDate).
+
+### GET `/api/tutor/assignments/{id}`
+
+- Auth: TUTOR (creator)  
+- Status: `200 OK`  
+Returns `AssignmentResponse` with `submissions[]` **inside** the same object (`AssignmentSubmissionSummaryResponse`: id, studentId, status, submittedAt, updatedAt, hasFeedback, `submissionAttachments`: `{ id, fileName }[]`), ordered by submitted time. Download bytes via `GET /api/assignments/submissions/attachments/{attachmentId}`.
+
+### GET `/api/tutor/assignments/{assignmentId}/submissions/{submissionId}`
+
+- Auth: TUTOR (assignment creator)  
+- Status: `200 OK`  
+Returns full `AssignmentSubmissionResponse` (includes attachment metadata and feedback fields).
+
+### PUT `/api/tutor/assignments/{assignmentId}/submissions/{submissionId}/feedback`
+
+- Auth: TUTOR (assignment creator)  
+- Status: `204 No Content`  
+Body: `{ "feedbackText": "..." }` (required, max 5000 chars).
+
+Common errors: `ASSIGNMENT_NOT_FOUND`, `SUBMISSION_NOT_FOUND`, `ACCESS_DENIED`, `ONLY_TUTORS`, validation errors.
+
+---
+
+## StudentAssignmentController (Assignments)
+
+Base path: `/api/student/assignments`
+
+Students see assignments only from tutors they are **actively allocated** to (same allocation window as elsewhere).
+
+### GET `/api/student/assignments`
+
+- Auth: STUDENT  
+- Status: `200 OK`  
+`AssignmentSummaryResponse[]`.
+
+### GET `/api/student/assignments/{id}`
+
+- Auth: STUDENT  
+- Status: `200 OK`  
+`AssignmentResponse` if the student has an active allocation to the assignment’s tutor. `submissions` contains **at most one** item — the logged-in student’s own submission (`AssignmentSubmissionSummaryResponse` with `submissionAttachments`), or `[]` if they have not opened/submitted yet (no row). Other students’ submissions are never included.
+
+### GET `/api/student/assignments/{id}/submission`
+
+- Auth: STUDENT  
+- Status: `200 OK`  
+Returns the student’s submission for this assignment. If none exists yet, a **DRAFT** submission is created (empty attachments) and returned.
+
+### PUT `/api/student/assignments/{id}/submission`
+
+- Auth: STUDENT  
+- Status: `200 OK`  
+- Content-Type: `multipart/form-data`  
+- Part `files`: **required** — at least one file. Replaces any previous submission files and sets status to `SUBMITTED`.
+
+Common errors: `ACCESS_DENIED`, `ONLY_STUDENTS`, `INVALID_SUBMISSION` (no files), `ASSIGNMENT_NOT_FOUND`.
+
+---
+
+## AssignmentAttachmentController (Downloads)
+
+Base path: `/api/assignments`
+
+- Auth: STUDENT, TUTOR, or ADMIN (fine-grained checks in service).
+
+### GET `/api/assignments/attachments/{attachmentId}`
+
+Download a **requirement** file from `assignment_attachments`.  
+- **Tutor**: must own the assignment.  
+- **Student**: must have active allocation to that tutor.  
+- **ADMIN**: allowed.
+
+### GET `/api/assignments/submissions/attachments/{attachmentId}`
+
+Download a **submission** file from `submission_attachments`.  
+- **Student**: only their own submission.  
+- **Tutor**: only for submissions on assignments they created.  
+- **ADMIN**: allowed.
+
+Response: raw bytes with `Content-Type` and `Content-Disposition: attachment`.
 
 ---
 

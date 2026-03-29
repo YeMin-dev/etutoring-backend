@@ -87,4 +87,14 @@ public interface TutorAllocationRepository extends JpaRepository<TutorAllocation
             OR LOWER(CONCAT(CONCAT(ta.tutor.firstName, ' '), ta.tutor.lastName)) LIKE LOWER(CONCAT(CONCAT('%', :search), '%')))
         """)
     Page<TutorAllocation> findAllBySearch(@Param("search") String search, Pageable pageable);
+
+    @Query(
+        """
+        SELECT COUNT(ta) FROM TutorAllocation ta
+        WHERE ta.student.id = :studentId AND ta.tutor.id = :tutorId
+          AND ta.endedDate IS NULL
+          AND (ta.scheduleEnd IS NULL OR ta.scheduleEnd >= CURRENT_TIMESTAMP)
+        """
+    )
+    long countActiveAllocationsForStudentAndTutor(@Param("studentId") UUID studentId, @Param("tutorId") UUID tutorId);
 }

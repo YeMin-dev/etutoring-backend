@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/student")
+@RequestMapping("/api/student/meetings")
 public class StudentMeetingController {
 
     private final MeetingService meetingService;
@@ -28,7 +28,7 @@ public class StudentMeetingController {
 
     private static final int MAX_PAGE_SIZE = 100;
 
-    @GetMapping("/meetings")
+    @GetMapping
     public Page<MeetingResponse> list(
         @AuthenticationPrincipal UserPrincipal principal,
         @RequestParam(defaultValue = "0") int page,
@@ -40,7 +40,7 @@ public class StudentMeetingController {
         return meetingService.listForStudent(currentUserId, pageable);
     }
 
-    @GetMapping("/meetings/{id}")
+    @GetMapping("/{id}")
     public MeetingResponse getById(@AuthenticationPrincipal UserPrincipal principal, @PathVariable UUID id) {
         return meetingService.getByIdForStudent(requirePrincipal(principal), id);
     }

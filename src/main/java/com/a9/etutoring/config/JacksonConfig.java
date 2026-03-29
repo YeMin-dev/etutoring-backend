@@ -1,7 +1,6 @@
 package com.a9.etutoring.config;
 
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -16,11 +15,10 @@ import tools.jackson.databind.ser.std.StdSerializer;
 @Configuration
 public class JacksonConfig {
 
-    private static final DateTimeFormatter RESPONSE_DATE_FORMATTER =
-        DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneOffset.UTC);
-
     @Bean
-    JsonMapperBuilderCustomizer instantDateFormatCustomizer() {
+    JsonMapperBuilderCustomizer instantDateFormatCustomizer(AppProperties appProperties) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+            .withZone(appProperties.getDefaultTimeZone());
         return builder -> {
             SimpleModule instantModule = new SimpleModule();
             instantModule.addSerializer(Instant.class, new StdSerializer<>(Instant.class) {
@@ -30,7 +28,7 @@ public class JacksonConfig {
                         gen.writeNull();
                         return;
                     }
-                    gen.writeString(RESPONSE_DATE_FORMATTER.format(value));
+                    gen.writeString(formatter.format(value));
                 }
             });
 
