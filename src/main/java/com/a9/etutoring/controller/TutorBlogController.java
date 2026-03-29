@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/tutor")
+@RequestMapping("/api/tutor/blogs")
 public class TutorBlogController {
 
     private final BlogService blogService;
@@ -24,7 +24,7 @@ public class TutorBlogController {
         this.blogService = blogService;
     }
 
-    @PostMapping("/blogs")
+    @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public BlogPostResponse createPost(
         @AuthenticationPrincipal UserPrincipal principal,
@@ -35,7 +35,7 @@ public class TutorBlogController {
         return blogService.createPost(principal.getId(), body, targetStudentIds, attachments);
     }
 
-    @PutMapping("/blogs/{id}")
+    @PutMapping("/{id}")
     public BlogPostResponse updatePost(
         @PathVariable UUID id,
         @AuthenticationPrincipal UserPrincipal principal,
@@ -47,7 +47,7 @@ public class TutorBlogController {
         return blogService.updatePost(id, principal.getId(), body, targetStudentIds, attachments, keepAttachmentIds);
     }
 
-    @DeleteMapping("/blogs/{id}")
+    @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePost(
         @PathVariable UUID id,
@@ -56,7 +56,7 @@ public class TutorBlogController {
         blogService.deletePost(id, principal.getId());
     }
 
-    @PostMapping("/blogs/{id}/comments")
+    @PostMapping("/{id}/comments")
     @ResponseStatus(HttpStatus.CREATED)
     public BlogCommentResponse addComment(
         @PathVariable UUID id,
@@ -66,7 +66,7 @@ public class TutorBlogController {
         return blogService.addComment(id, principal.getId(), request);
     }
 
-    @PutMapping("/blogs/comments/{commentId}")
+    @PutMapping("/comments/{commentId}")
     public BlogCommentResponse updateComment(
         @PathVariable UUID commentId,
         @AuthenticationPrincipal UserPrincipal principal,
@@ -75,7 +75,7 @@ public class TutorBlogController {
         return blogService.updateComment(commentId, principal.getId(), request);
     }
 
-    @GetMapping("/blogs/{id}")
+    @GetMapping("/{id}")
     public BlogPostResponse getPost(
         @PathVariable UUID id,
         @AuthenticationPrincipal UserPrincipal principal
@@ -83,7 +83,7 @@ public class TutorBlogController {
         return blogService.getPost(id, principal.getId());
     }
 
-    @GetMapping("/blogs")
+    @GetMapping
     public List<BlogPostResponse> listVisiblePosts(@AuthenticationPrincipal UserPrincipal principal) {
         return blogService.listVisiblePosts(principal.getId(), principal.getRole());
     }

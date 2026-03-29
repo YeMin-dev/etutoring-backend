@@ -9,13 +9,13 @@ import com.a9.etutoring.domain.model.TutorAllocation;
 import com.a9.etutoring.domain.model.User;
 import com.a9.etutoring.exception.BadRequestException;
 import com.a9.etutoring.exception.ResourceNotFoundException;
+import com.a9.etutoring.config.AppProperties;
 import com.a9.etutoring.repository.MeetingRepository;
 import com.a9.etutoring.repository.TutorAllocationRepository;
 import com.a9.etutoring.repository.UserRepository;
 import com.a9.etutoring.service.EmailService;
 import com.a9.etutoring.service.MeetingService;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
@@ -29,9 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class MeetingServiceImpl implements MeetingService {
 
-    private static final DateTimeFormatter DATE_FORMATTER =
-        DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneOffset.UTC);
-
+    private final DateTimeFormatter emailInstantFormatter;
     private final MeetingRepository meetingRepository;
     private final UserRepository userRepository;
     private final TutorAllocationRepository tutorAllocationRepository;
@@ -40,11 +38,14 @@ public class MeetingServiceImpl implements MeetingService {
     public MeetingServiceImpl(MeetingRepository meetingRepository,
                               UserRepository userRepository,
                               TutorAllocationRepository tutorAllocationRepository,
-                              EmailService emailService) {
+                              EmailService emailService,
+                              AppProperties appProperties) {
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
         this.tutorAllocationRepository = tutorAllocationRepository;
         this.emailService = emailService;
+        this.emailInstantFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+            .withZone(appProperties.getDefaultTimeZone());
     }
 
     @Override
@@ -184,8 +185,8 @@ public class MeetingServiceImpl implements MeetingService {
 
     private void sendMeetingArrangedEmail(User student, Meeting meeting) {
         String studentName = buildFullName(student);
-        String startStr = DATE_FORMATTER.format(meeting.getStartDate());
-        String endStr = DATE_FORMATTER.format(meeting.getEndDate());
+        String startStr = emailInstantFormatter.format(meeting.getStartDate());
+        String endStr = emailInstantFormatter.format(meeting.getEndDate());
         String locationOrLink = meeting.getMode().name().equals("VIRTUAL") && meeting.getLink() != null
             ? "Link: " + meeting.getLink()
             : meeting.getLocation() != null ? "Location: " + meeting.getLocation() : "—";
@@ -204,8 +205,8 @@ public class MeetingServiceImpl implements MeetingService {
 
     private void sendMeetingUpdatedEmail(User student, Meeting meeting) {
         String studentName = buildFullName(student);
-        String startStr = DATE_FORMATTER.format(meeting.getStartDate());
-        String endStr = DATE_FORMATTER.format(meeting.getEndDate());
+        String startStr = emailInstantFormatter.format(meeting.getStartDate());
+        String endStr = emailInstantFormatter.format(meeting.getEndDate());
         String locationOrLink = meeting.getMode().name().equals("VIRTUAL") && meeting.getLink() != null
             ? "Link: " + meeting.getLink()
             : meeting.getLocation() != null ? "Location: " + meeting.getLocation() : "—";
@@ -224,8 +225,8 @@ public class MeetingServiceImpl implements MeetingService {
 
     private void sendMeetingCancelledEmail(User student, Meeting meeting) {
         String studentName = buildFullName(student);
-        String startStr = DATE_FORMATTER.format(meeting.getStartDate());
-        String endStr = DATE_FORMATTER.format(meeting.getEndDate());
+        String startStr = emailInstantFormatter.format(meeting.getStartDate());
+        String endStr = emailInstantFormatter.format(meeting.getEndDate());
 
         String body = String.format(
             "Hello %s,\n\n" +
