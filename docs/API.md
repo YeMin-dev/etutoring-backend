@@ -1158,7 +1158,7 @@ Tutors create assignments with instructions and optional requirement files (stor
 | `dueDate` | No | Text `dd/MM/yyyy HH:mm` (24-hour), e.g. `31/12/2026 23:59`. Parsed in **`app.default-time-zone`** (default `Asia/Yangon`, overridable via `APP_DEFAULT_TIME_ZONE`); stored as an absolute instant in the database (`TIMESTAMPTZ`). JSON `Instant` fields (including `dueDate`) are formatted as the same `dd/MM/yyyy HH:mm` in that zone. |
 | `attachments` | No | One or more files (requirement documents) |
 
-Success: `AssignmentResponse` (id, createdById, title, instructions, dueDate, createdDate, updatedDate, attachments: `{ id, fileName }[]`).
+Success: `AssignmentResponse` (id, createdById, title, instructions, dueDate, createdDate, updatedDate, attachments: `{ id, fileName }[]`, `submissions`: always `[]` on create).
 
 ### PUT `/api/tutor/assignments/{id}`
 
@@ -1172,6 +1172,8 @@ Success: `AssignmentResponse` (id, createdById, title, instructions, dueDate, cr
 | `dueDate` | No | Same `dd/MM/yyyy HH:mm` format as create, or omit |
 | `keepAttachmentIds` | No | Query/form param; UUIDs of assignment attachments to keep. If omitted or empty, **all** requirement attachments are removed before new ones are added. |
 | `attachments` | No | New files to add |
+
+Success: `AssignmentResponse`; `submissions` is always `[]` on update (use GET `/{id}` for the full list).
 
 ### DELETE `/api/tutor/assignments/{id}`
 
@@ -1189,7 +1191,7 @@ Returns `AssignmentSummaryResponse[]` (id, createdById, title, dueDate, createdD
 
 - Auth: TUTOR (creator)  
 - Status: `200 OK`  
-Returns `AssignmentTutorDetailResponse`: full `AssignmentResponse` plus `submissions[]` (`AssignmentSubmissionSummaryResponse`: id, studentId, status, submittedAt, updatedAt, hasFeedback).
+Returns `AssignmentResponse` with `submissions[]` **inside** the same object (`AssignmentSubmissionSummaryResponse`: id, studentId, status, submittedAt, updatedAt, hasFeedback, `submissionAttachments`: `{ id, fileName }[]`), ordered by submitted time. Download bytes via `GET /api/assignments/submissions/attachments/{attachmentId}`.
 
 ### GET `/api/tutor/assignments/{assignmentId}/submissions/{submissionId}`
 
@@ -1223,7 +1225,7 @@ Students see assignments only from tutors they are **actively allocated** to (sa
 
 - Auth: STUDENT  
 - Status: `200 OK`  
-`AssignmentResponse` if the student has an active allocation to the assignment’s tutor.
+`AssignmentResponse` if the student has an active allocation to the assignment’s tutor. `submissions` contains **at most one** item — the logged-in student’s own submission (`AssignmentSubmissionSummaryResponse` with `submissionAttachments`), or `[]` if they have not opened/submitted yet (no row). Other students’ submissions are never included.
 
 ### GET `/api/student/assignments/{id}/submission`
 
