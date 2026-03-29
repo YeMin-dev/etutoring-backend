@@ -18,6 +18,7 @@ import com.a9.etutoring.exception.BadRequestException;
 import com.a9.etutoring.exception.ResourceNotFoundException;
 import com.a9.etutoring.exception.UnauthorizedException;
 import com.a9.etutoring.config.AllocationPreviewScheduleProperties;
+import com.a9.etutoring.config.AppProperties;
 import com.a9.etutoring.repository.TutorAllocationRepository;
 import com.a9.etutoring.repository.UserRepository;
 import com.a9.etutoring.security.UserPrincipal;
@@ -54,15 +55,18 @@ public class TutorAllocationServiceImpl implements TutorAllocationService {
     private final TutorAllocationRepository tutorAllocationRepository;
     private final EmailService emailService;
     private final AllocationPreviewScheduleProperties scheduleProperties;
+    private final AppProperties appProperties;
 
     public TutorAllocationServiceImpl(UserRepository userRepository,
                                       TutorAllocationRepository tutorAllocationRepository,
                                       EmailService emailService,
-                                      AllocationPreviewScheduleProperties scheduleProperties) {
+                                      AllocationPreviewScheduleProperties scheduleProperties,
+                                      AppProperties appProperties) {
         this.userRepository = userRepository;
         this.tutorAllocationRepository = tutorAllocationRepository;
         this.emailService = emailService;
         this.scheduleProperties = scheduleProperties;
+        this.appProperties = appProperties;
     }
 
     @Override
@@ -140,7 +144,7 @@ public class TutorAllocationServiceImpl implements TutorAllocationService {
                 throw new BadRequestException("INVALID_TIMEZONE", "Invalid timeZoneId: " + timeZoneId);
             }
         }
-        return ZoneId.systemDefault();
+        return appProperties.getDefaultTimeZone();
     }
 
     @Override

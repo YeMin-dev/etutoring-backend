@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/student")
+@RequestMapping("/api/student/blogs")
 public class StudentBlogController {
 
     private final BlogService blogService;
@@ -30,12 +30,12 @@ public class StudentBlogController {
         this.blogService = blogService;
     }
 
-    @GetMapping("/blogs")
+    @GetMapping
     public List<BlogPostResponse> listBlogs(@AuthenticationPrincipal UserPrincipal principal) {
         return blogService.listVisiblePosts(principal.getId(), UserRole.STUDENT);
     }
 
-    @GetMapping("/blogs/{id}")
+    @GetMapping("/{id}")
     public BlogPostResponse getBlog(
         @PathVariable UUID id,
         @AuthenticationPrincipal UserPrincipal principal
@@ -43,7 +43,7 @@ public class StudentBlogController {
         return blogService.getPost(id, principal.getId());
     }
 
-    @PostMapping("/blogs/{postId}/comments")
+    @PostMapping("/{postId}/comments")
     @ResponseStatus(HttpStatus.CREATED)
     public BlogCommentResponse addComment(
         @PathVariable UUID postId,
@@ -53,7 +53,7 @@ public class StudentBlogController {
         return blogService.addComment(postId, principal.getId(), request);
     }
 
-    @PutMapping("/blogs/comments/{commentId}")
+    @PutMapping("/comments/{commentId}")
     public BlogCommentResponse updateComment(
         @PathVariable UUID commentId,
         @AuthenticationPrincipal UserPrincipal principal,
