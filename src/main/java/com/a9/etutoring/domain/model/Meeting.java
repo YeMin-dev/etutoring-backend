@@ -1,6 +1,7 @@
 package com.a9.etutoring.domain.model;
 
 import com.a9.etutoring.domain.enums.MeetingMode;
+import com.a9.etutoring.domain.enums.VirtualMeetingPlatform;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -51,6 +52,11 @@ public class Meeting {
 
     @Column(name = "link", columnDefinition = "TEXT")
     private String link;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "virtual_platform", length = 64)
+    private VirtualMeetingPlatform virtualPlatform;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
@@ -131,6 +137,14 @@ public class Meeting {
 
     public void setLink(String link) {
         this.link = link;
+    }
+
+    public VirtualMeetingPlatform getVirtualPlatform() {
+        return virtualPlatform;
+    }
+
+    public void setVirtualPlatform(VirtualMeetingPlatform virtualPlatform) {
+        this.virtualPlatform = virtualPlatform;
     }
 
     public String getDescription() {

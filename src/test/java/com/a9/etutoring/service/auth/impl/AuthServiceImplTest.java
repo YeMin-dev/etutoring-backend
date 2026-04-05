@@ -27,6 +27,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -79,6 +80,7 @@ class AuthServiceImplTest {
         assertEquals("jwt-token", response.accessToken());
         assertEquals("Bearer", response.tokenType());
         assertEquals(UserRole.STUDENT, response.role());
+        assertNull(response.previousLoginAt());
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(userCaptor.capture());
@@ -122,6 +124,8 @@ class AuthServiceImplTest {
         user.setIsActive(true);
         user.setIsLocked(false);
         user.setCreatedDate(Instant.now());
+        Instant priorLogin = Instant.parse("2025-06-01T10:00:00Z");
+        user.setLastLoginDate(priorLogin);
 
         UserPrincipal principal = UserPrincipal.fromUser(user);
         Authentication authentication = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
@@ -135,6 +139,7 @@ class AuthServiceImplTest {
         AuthResponse response = authService.login(new AuthLoginRequest("alice", "Password123"));
 
         assertEquals("jwt-token", response.accessToken());
+        assertEquals(priorLogin, response.previousLoginAt());
         verify(userRepository).save(any(User.class));
         assertNotNull(user.getLastLoginDate());
     }

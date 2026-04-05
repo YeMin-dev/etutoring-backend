@@ -69,9 +69,12 @@ Success response:
   "expiresInSeconds": 3600,
   "id": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
   "username": "student1",
-  "role": "STUDENT"
+  "role": "STUDENT",
+  "previousLoginAt": null
 }
 ```
+
+- `previousLoginAt` is always `null` on signup (first session token).
 
 Common errors:
 
@@ -104,9 +107,12 @@ Success response:
   "expiresInSeconds": 3600,
   "id": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
   "username": "student1",
-  "role": "STUDENT"
+  "role": "STUDENT",
+  "previousLoginAt": "15/03/2026 14:30"
 }
 ```
+
+- `previousLoginAt`: **Instant** of the last successful login **before** this one (same `dd/MM/yyyy HH:mm` formatting as other instants, in `app.default-time-zone`). **`null`** means there was no prior login (show a first-time welcome). After this response, the server stores the current login time as the new last login.
 
 Common errors:
 
@@ -715,6 +721,7 @@ Success response:
   "mode": "VIRTUAL",
   "location": null,
   "link": "https://meet.example.com/abc",
+  "virtualPlatform": "GOOGLE_MEET",
   "description": "Math revision",
   "createdDate": "04/03/2026 09:20",
   "updatedDate": null
@@ -743,11 +750,15 @@ Request body:
   "mode": "VIRTUAL",
   "location": null,
   "link": "https://meet.example.com/abc",
+  "virtualPlatform": "GOOGLE_MEET",
   "description": "Math revision"
 }
 ```
 
-- `studentUserId`, `startDate`, `endDate`, `mode` are required. `mode` must be `IN_PERSON` or `VIRTUAL`. `location`, `link`, `description` are optional.
+- `studentUserId`, `startDate`, `endDate`, `mode` are required. `mode` must be `IN_PERSON` or `VIRTUAL`.
+- **In person (`IN_PERSON`):** `location` is required (non-blank after trim). Do not send `link` or `virtualPlatform` (or send them omitted / null only).
+- **Virtual (`VIRTUAL`):** `link` is required (non-blank, must start with `http://` or `https://`). `virtualPlatform` is required. Allowed values: `ZOOM`, `MICROSOFT_TEAMS`, `GOOGLE_MEET`, `OTHER`. Do not send a non-blank `location`.
+- `description` is optional for both modes.
 
 Success response: same shape as `GET /api/tutor/meetings/{id}`.
 
@@ -756,6 +767,11 @@ Common errors:
 - `400 VALIDATION_ERROR`
 - `400 ONLY_TUTORS_CAN_ARRANGE` (non-tutor user attempts to create)
 - `400 INVALID_SCHEDULE` (endDate before startDate)
+- `400 INVALID_MEETING_LOCATION` (in-person without a usable location)
+- `400 INVALID_MEETING_IN_PERSON` (in-person request includes link or platform)
+- `400 INVALID_MEETING_LINK` (virtual without a valid http(s) link)
+- `400 INVALID_MEETING_PLATFORM` (virtual without `virtualPlatform`)
+- `400 INVALID_MEETING_VIRTUAL` (virtual request includes a non-blank location)
 - `400 MEETING_NOT_WITHIN_ALLOCATION` (meeting window must fall inside an allocation slot for this tutor–student pair)
 - `400 MEETING_OVERLAP` (tutor already has a meeting in this time range)
 - `400 INVALID_STUDENT` (user is not a student)
@@ -780,11 +796,13 @@ Request body (all optional):
   "mode": "IN_PERSON",
   "location": "Room 101",
   "link": null,
+  "virtualPlatform": null,
   "description": "Updated description"
 }
 ```
 
 - If both `startDate` and `endDate` are present, `endDate` must be ≥ `startDate`.
+- After merging omitted fields with the existing meeting, the same mode rules as **POST** apply (in-person: location required, no link/platform; virtual: http(s) link + `virtualPlatform`, no location).
 
 Success response: same shape as `GET /api/tutor/meetings/{id}`.
 
@@ -792,6 +810,7 @@ Common errors:
 
 - `400 VALIDATION_ERROR`
 - `400 INVALID_SCHEDULE` (endDate before startDate after update)
+- `400 INVALID_MEETING_LOCATION` / `INVALID_MEETING_IN_PERSON` / `INVALID_MEETING_LINK` / `INVALID_MEETING_PLATFORM` / `INVALID_MEETING_VIRTUAL` (same semantics as create)
 - `400 MEETING_NOT_WITHIN_ALLOCATION` (meeting window must fall inside an allocation slot for this tutor–student pair)
 - `400 MEETING_OVERLAP` (tutor already has another meeting in this time range)
 - `404 MEETING_NOT_FOUND`
@@ -1268,11 +1287,64 @@ Response: raw bytes with `Content-Type` and `Content-Disposition: attachment`.
 
 ---
 
+## PageViewController (Analytics ingest)
+
+Base path: `/api/analytics`
+
+Records one page view per request for usage reporting (school scope: path, user, browser label).
+
+### POST `/api/analytics/page-views`
+
+- Auth: STUDENT, TUTOR, or ADMIN (JWT required)
+- Status: `204 No Content`
+- Content-Type: `application/json`
+
+Body:
+
+```json
+{ "pagePath": "/assignments" }
+```
+
+- `pagePath` (required): Logical route or screen id; leading `/` is added if missing. Max 255 chars.
+
+The server stores `userId` from the JWT, `viewedAt` as now, and a short **browser** label derived from the `User-Agent` header (`Chrome`, `Edge`, `Firefox`, `Safari`, or `Other`).
+
+Common errors: `400` validation, `401`, `404` if user record missing.
+
+---
+
 ## InteractionReportController (Reports)
 
 Base path: `/api/admin/reports`
 
-Reports for platform usage and interaction; currently only exposes an inactive users report.
+Reports for platform usage and interaction (inactive users, page-view aggregates).
+
+### GET `/api/admin/reports/usage-summary`
+
+Aggregates page views in the date range (inclusive `from`, inclusive `to`), interpreted in **`app.default-time-zone`**.
+
+- Auth: ADMIN
+- Status: `200 OK`
+
+Query params (required):
+
+- `from` — ISO date (e.g. `2026-01-01`)
+- `to` — ISO date (e.g. `2026-01-31`)
+
+Max range: **366** days. Response:
+
+```json
+{
+  "topPages": [{ "pagePath": "/assignments", "viewCount": 42 }],
+  "topUsers": [
+    { "userId": "…", "username": "student1", "email": "…", "viewCount": 30 }
+  ],
+  "browsers": [{ "browser": "Chrome", "viewCount": 100 }]
+```
+
+Up to **50** rows per list, ordered by count descending. Empty lists if no data.
+
+Common errors: `400 INVALID_RANGE`, `401`, `403`.
 
 ### GET `/api/admin/reports/inactive-users`
 
@@ -1326,8 +1398,25 @@ Common errors:
 
 ---
 
+## Scheduled jobs (operations, not HTTP)
+
+These run inside the Spring Boot process; there is no public REST endpoint for them.
+
+### 28-day student inactivity warning emails
+
+- **Purpose:** If a **student** has no recorded activity for at least **`app.inactivity-reminder.threshold-days`** (default **28**), the system sends a warning email to the **student** and to each **allocated tutor** with an **active, current** tutor allocation (same notion of “active” as elsewhere: `ended_date` null and `schedule_end` null or in the future).
+- **Activity baseline:** Same as the inactive-users report: `coalesce(last_interaction_date, created_date)` on the user row. In the current codebase, `last_interaction_date` is updated on signup, login, and certain blog actions—not on every API call (e.g. messaging or assignments). Align product wording with that definition or extend touch points later.
+- **Schedule:** Cron `app.inactivity-reminder.cron` (default `0 0 8 * * *` — daily 08:00) in zone `app.default-time-zone`.
+- **Enable/disable:** `app.inactivity-reminder.enabled` (default `true`; tests typically set `false`).
+- **Audit trail:** Each attempt is stored in table **`inactivity_reminder_log`**: `student_user_id`, `tutor_user_id`, `activity_baseline_at`, `status` (`PENDING`, `SENT`, `PARTIAL`, `FAILED`), optional `student_sent_at` / `tutor_sent_at`, and error text if a send failed. **Idempotency:** unique on `(student_user_id, tutor_user_id, activity_baseline_at)` so the same inactivity episode is not emailed twice for that pair; after the student interacts again, the baseline changes and a new episode can generate a new row later.
+- **Mail:** Uses synchronous send for this job so success/failure can be recorded. Requires a configured `spring.mail.from` and working SMTP (same as other emails).
+
+---
+
 ## Global Error Codes (Current)
 
+- `INVALID_RANGE` -> `400` (usage-summary: bad or too-wide date range)
+- `INVALID_PAGE_PATH` -> `400` (page-views: blank or too long path)
 - `VALIDATION_ERROR` -> `400`
 - `DATA_INTEGRITY_ERROR` -> `400`
 - `INVALID_STUDENT` -> `400` (allocation: user is not a student)
@@ -1343,6 +1432,11 @@ Common errors:
 - `ONLY_TUTORS_CAN_ARRANGE` -> `400` (meetings: only tutors can create meetings)
 - `MEETING_NOT_WITHIN_ALLOCATION` -> `400` (meetings: meeting must fall within an allocation slot for this tutor–student pair)
 - `MEETING_OVERLAP` -> `400` (meetings: tutor already has a meeting in this time range)
+- `INVALID_MEETING_LOCATION` -> `400` (meetings: in-person requires non-blank location)
+- `INVALID_MEETING_IN_PERSON` -> `400` (meetings: in-person must not include link or virtual platform)
+- `INVALID_MEETING_LINK` -> `400` (meetings: virtual requires http(s) invitation link)
+- `INVALID_MEETING_PLATFORM` -> `400` (meetings: virtual requires `virtualPlatform`)
+- `INVALID_MEETING_VIRTUAL` -> `400` (meetings: virtual must not include physical location)
 - `ALLOCATION_NOT_FOUND` -> `404`
 - `CONVERSATION_NOT_FOUND` -> `404`
 - `NOT_PARTICIPANT` -> `403` (conversations: not the student or tutor of the allocation/conversation)

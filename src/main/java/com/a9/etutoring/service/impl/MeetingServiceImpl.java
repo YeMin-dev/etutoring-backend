@@ -3,7 +3,9 @@ package com.a9.etutoring.service.impl;
 import com.a9.etutoring.domain.dto.meeting.MeetingCreateRequest;
 import com.a9.etutoring.domain.dto.meeting.MeetingResponse;
 import com.a9.etutoring.domain.dto.meeting.MeetingUpdateRequest;
+import com.a9.etutoring.domain.enums.MeetingMode;
 import com.a9.etutoring.domain.enums.UserRole;
+import com.a9.etutoring.domain.enums.VirtualMeetingPlatform;
 import com.a9.etutoring.domain.model.Meeting;
 import com.a9.etutoring.domain.model.TutorAllocation;
 import com.a9.etutoring.domain.model.User;
@@ -66,6 +68,10 @@ public class MeetingServiceImpl implements MeetingService {
         checkMeetingWithinAllocation(currentUserId, student.getId(), request.startDate(), request.endDate());
         checkMeetingOverlap(currentUserId, request.startDate(), request.endDate(), null);
 
+        String locTrimmed = request.location() != null ? request.location().trim() : "";
+        String linkTrimmed = request.link() != null ? request.link().trim() : "";
+        validateMeetingModeDetails(request.mode(), locTrimmed, linkTrimmed, request.virtualPlatform());
+
         Meeting meeting = new Meeting();
         meeting.setId(UUID.randomUUID());
         meeting.setStudent(student);
@@ -73,10 +79,21 @@ public class MeetingServiceImpl implements MeetingService {
         meeting.setCreatedBy(tutor);
         meeting.setStartDate(request.startDate());
         meeting.setEndDate(request.endDate());
-        meeting.setMode(request.mode());
-        meeting.setLocation(request.location());
-        meeting.setLink(request.link());
         meeting.setDescription(request.description());
+        switch (request.mode()) {
+            case IN_PERSON -> {
+                meeting.setMode(MeetingMode.IN_PERSON);
+                meeting.setLocation(locTrimmed);
+                meeting.setLink(null);
+                meeting.setVirtualPlatform(null);
+            }
+            case VIRTUAL -> {
+                meeting.setMode(MeetingMode.VIRTUAL);
+                meeting.setLocation(null);
+                meeting.setLink(linkTrimmed);
+                meeting.setVirtualPlatform(request.virtualPlatform());
+            }
+        }
         Instant now = Instant.now();
         meeting.setCreatedDate(now);
         meeting.setUpdatedDate(null);
@@ -123,15 +140,39 @@ public class MeetingServiceImpl implements MeetingService {
         Meeting meeting = meetingRepository.findByIdAndTutor_Id(id, currentUserId)
             .orElseThrow(() -> new ResourceNotFoundException("MEETING_NOT_FOUND", "Meeting not found"));
 
-        if (request.startDate() != null) meeting.setStartDate(request.startDate());
-        if (request.endDate() != null) meeting.setEndDate(request.endDate());
-        if (request.mode() != null) meeting.setMode(request.mode());
-        if (request.location() != null) meeting.setLocation(request.location());
-        if (request.link() != null) meeting.setLink(request.link());
-        if (request.description() != null) meeting.setDescription(request.description());
+        Instant start = request.startDate() != null ? request.startDate() : meeting.getStartDate();
+        Instant end = request.endDate() != null ? request.endDate() : meeting.getEndDate();
+        MeetingMode mode = request.mode() != null ? request.mode() : meeting.getMode();
+        String mergedLoc = request.location() != null ? request.location() : meeting.getLocation();
+        String mergedLink = request.link() != null ? request.link() : meeting.getLink();
+        VirtualMeetingPlatform mergedVp = request.virtualPlatform() != null ? request.virtualPlatform() : meeting.getVirtualPlatform();
 
-        if (meeting.getEndDate().isBefore(meeting.getStartDate())) {
+        String locTrimmed = mergedLoc != null ? mergedLoc.trim() : "";
+        String linkTrimmed = mergedLink != null ? mergedLink.trim() : "";
+
+        if (end.isBefore(start)) {
             throw new BadRequestException("INVALID_SCHEDULE", "endDate must be after or equal to startDate");
+        }
+        validateMeetingModeDetails(mode, locTrimmed, linkTrimmed, mergedVp);
+
+        meeting.setStartDate(start);
+        meeting.setEndDate(end);
+        if (request.description() != null) {
+            meeting.setDescription(request.description());
+        }
+        switch (mode) {
+            case IN_PERSON -> {
+                meeting.setMode(MeetingMode.IN_PERSON);
+                meeting.setLocation(locTrimmed);
+                meeting.setLink(null);
+                meeting.setVirtualPlatform(null);
+            }
+            case VIRTUAL -> {
+                meeting.setMode(MeetingMode.VIRTUAL);
+                meeting.setLocation(null);
+                meeting.setLink(linkTrimmed);
+                meeting.setVirtualPlatform(mergedVp);
+            }
         }
         checkMeetingWithinAllocation(meeting.getTutor().getId(), meeting.getStudent().getId(), meeting.getStartDate(), meeting.getEndDate());
         checkMeetingOverlap(currentUserId, meeting.getStartDate(), meeting.getEndDate(), meeting.getId());
@@ -147,6 +188,53 @@ public class MeetingServiceImpl implements MeetingService {
             .orElseThrow(() -> new ResourceNotFoundException("MEETING_NOT_FOUND", "Meeting not found"));
         sendMeetingCancelledEmail(meeting.getStudent(), meeting);
         meetingRepository.delete(meeting);
+    }
+
+    private static boolean isHttpInvitationLink(String trimmed) {
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        String lower = trimmed.toLowerCase();
+        return lower.startsWith("http://") || lower.startsWith("https://");
+    }
+
+    private void validateMeetingModeDetails(MeetingMode mode, String locationTrimmed, String linkTrimmed, VirtualMeetingPlatform platform) {
+        switch (mode) {
+            case IN_PERSON -> {
+                if (locationTrimmed.isEmpty()) {
+                    throw new BadRequestException("INVALID_MEETING_LOCATION", "In-person meetings require a non-blank location");
+                }
+                if (!linkTrimmed.isEmpty()) {
+                    throw new BadRequestException("INVALID_MEETING_IN_PERSON", "In-person meetings must not include a meeting link");
+                }
+                if (platform != null) {
+                    throw new BadRequestException("INVALID_MEETING_IN_PERSON", "In-person meetings must not include a virtual platform");
+                }
+            }
+            case VIRTUAL -> {
+                if (!locationTrimmed.isEmpty()) {
+                    throw new BadRequestException("INVALID_MEETING_VIRTUAL", "Virtual meetings must not include a physical location");
+                }
+                if (linkTrimmed.isEmpty() || !isHttpInvitationLink(linkTrimmed)) {
+                    throw new BadRequestException("INVALID_MEETING_LINK", "Virtual meetings require an http(s) invitation link");
+                }
+                if (platform == null) {
+                    throw new BadRequestException("INVALID_MEETING_PLATFORM", "Virtual meetings require a platform");
+                }
+            }
+        }
+    }
+
+    private String formatMeetingPlace(Meeting meeting) {
+        if (meeting.getMode() == MeetingMode.VIRTUAL) {
+            StringBuilder sb = new StringBuilder();
+            if (meeting.getVirtualPlatform() != null) {
+                sb.append("Platform: ").append(meeting.getVirtualPlatform().displayName()).append('\n');
+            }
+            sb.append("Link: ").append(meeting.getLink());
+            return sb.toString();
+        }
+        return "Location: " + meeting.getLocation();
     }
 
     private void checkMeetingWithinAllocation(UUID tutorId, UUID studentId, Instant meetingStart, Instant meetingEnd) {
@@ -177,6 +265,7 @@ public class MeetingServiceImpl implements MeetingService {
             m.getMode(),
             m.getLocation(),
             m.getLink(),
+            m.getVirtualPlatform(),
             m.getDescription(),
             m.getCreatedDate(),
             m.getUpdatedDate()
@@ -187,9 +276,7 @@ public class MeetingServiceImpl implements MeetingService {
         String studentName = buildFullName(student);
         String startStr = emailInstantFormatter.format(meeting.getStartDate());
         String endStr = emailInstantFormatter.format(meeting.getEndDate());
-        String locationOrLink = meeting.getMode().name().equals("VIRTUAL") && meeting.getLink() != null
-            ? "Link: " + meeting.getLink()
-            : meeting.getLocation() != null ? "Location: " + meeting.getLocation() : "—";
+        String place = formatMeetingPlace(meeting);
         String desc = meeting.getDescription() != null && !meeting.getDescription().isBlank()
             ? "\nDetails: " + meeting.getDescription() : "";
 
@@ -198,7 +285,7 @@ public class MeetingServiceImpl implements MeetingService {
             "A meeting has been arranged for you.\n\n" +
             "Start: %s\nEnd: %s\nMode: %s\n%s%s\n\n" +
             "Best regards,\neTutoring System",
-            studentName, startStr, endStr, meeting.getMode(), locationOrLink, desc);
+            studentName, startStr, endStr, meeting.getMode(), place, desc);
 
         emailService.sendEmail(student.getEmail(), "Meeting arranged – eTutoring", body);
     }
@@ -207,9 +294,7 @@ public class MeetingServiceImpl implements MeetingService {
         String studentName = buildFullName(student);
         String startStr = emailInstantFormatter.format(meeting.getStartDate());
         String endStr = emailInstantFormatter.format(meeting.getEndDate());
-        String locationOrLink = meeting.getMode().name().equals("VIRTUAL") && meeting.getLink() != null
-            ? "Link: " + meeting.getLink()
-            : meeting.getLocation() != null ? "Location: " + meeting.getLocation() : "—";
+        String place = formatMeetingPlace(meeting);
         String desc = meeting.getDescription() != null && !meeting.getDescription().isBlank()
             ? "\nDetails: " + meeting.getDescription() : "";
 
@@ -218,7 +303,7 @@ public class MeetingServiceImpl implements MeetingService {
             "Your meeting has been updated.\n\n" +
             "Start: %s\nEnd: %s\nMode: %s\n%s%s\n\n" +
             "Best regards,\neTutoring System",
-            studentName, startStr, endStr, meeting.getMode(), locationOrLink, desc);
+            studentName, startStr, endStr, meeting.getMode(), place, desc);
 
         emailService.sendEmail(student.getEmail(), "Meeting updated – eTutoring", body);
     }
