@@ -85,7 +85,7 @@ public class AuthServiceImpl implements AuthService {
         User saved = userRepository.save(user);
         UserPrincipal principal = UserPrincipal.fromUser(saved);
         String token = jwtService.generateToken(principal);
-        return toAuthResponse(principal, token);
+        return toAuthResponse(principal, token, null);
     }
 
     @Override
@@ -102,12 +102,13 @@ public class AuthServiceImpl implements AuthService {
             );
             UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
 
+            Instant previousLoginAt = user.getLastLoginDate();
             user.setLastLoginDate(Instant.now());
             user.setLastInteractionDate(Instant.now());
             userRepository.save(user);
 
             String token = jwtService.generateToken(principal);
-            return toAuthResponse(principal, token);
+            return toAuthResponse(principal, token, previousLoginAt);
         } catch (BadCredentialsException ex) {
             throw new UnauthorizedException("AUTHENTICATION_FAILED", "Invalid username or password");
         }
@@ -143,14 +144,15 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
     }
 
-    private AuthResponse toAuthResponse(UserPrincipal principal, String token) {
+    private AuthResponse toAuthResponse(UserPrincipal principal, String token, Instant previousLoginAt) {
         return new AuthResponse(
             token,
             "Bearer",
             jwtService.getExpirationSeconds(),
             principal.getId(),
             principal.getUsername(),
-            principal.getRole()
+            principal.getRole(),
+            previousLoginAt
         );
     }
 }

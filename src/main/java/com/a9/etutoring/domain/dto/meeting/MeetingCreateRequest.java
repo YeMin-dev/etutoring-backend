@@ -1,6 +1,7 @@
 package com.a9.etutoring.domain.dto.meeting;
 
 import com.a9.etutoring.domain.enums.MeetingMode;
+import com.a9.etutoring.domain.enums.VirtualMeetingPlatform;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.UUID;
@@ -12,6 +13,7 @@ public record MeetingCreateRequest(
     @NotNull MeetingMode mode,
     String location,
     String link,
+    VirtualMeetingPlatform virtualPlatform,
     String description
 ) {
 }

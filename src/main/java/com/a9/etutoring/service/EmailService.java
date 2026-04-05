@@ -41,4 +41,27 @@ public class EmailService {
             logger.error("Failed to send email to: {}. Error: {}", to, e.getMessage(), e);
         }
     }
+
+    /**
+     * Synchronous send for jobs that must record success/failure (e.g. inactivity reminders).
+     */
+    public boolean sendEmailSync(String to, String subject, String body) {
+        if (from == null || from.isBlank()) {
+            logger.debug("Skipping sync email to {} (spring.mail.from not set)", to);
+            return false;
+        }
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(from);
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(body);
+            mailSender.send(message);
+            logger.info("Email sent successfully to: {}", to);
+            return true;
+        } catch (MailException e) {
+            logger.error("Failed to send email to: {}. Error: {}", to, e.getMessage(), e);
+            return false;
+        }
+    }
 }

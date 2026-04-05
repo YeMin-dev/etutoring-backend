@@ -1,5 +1,6 @@
 package com.a9.etutoring.repository;
 
+import com.a9.etutoring.domain.enums.UserRole;
 import com.a9.etutoring.domain.model.TutorAllocation;
 import com.a9.etutoring.domain.model.User;
 import java.time.Instant;
@@ -38,6 +39,21 @@ public interface TutorAllocationRepository extends JpaRepository<TutorAllocation
         ORDER BY ta.tutor.username, ta.scheduleStart
         """)
     List<TutorAllocation> findActiveAllocationsByStudentIdWithCurrentSchedule(@Param("studentId") UUID studentId);
+
+    @Query("""
+        SELECT DISTINCT ta FROM TutorAllocation ta
+        JOIN FETCH ta.student s
+        JOIN FETCH ta.tutor t
+        WHERE s.deletedDate IS NULL
+        AND s.role = :studentRole
+        AND ta.endedDate IS NULL
+        AND (ta.scheduleEnd IS NULL OR ta.scheduleEnd >= CURRENT_TIMESTAMP)
+        AND COALESCE(s.lastInteractionDate, s.createdDate) < :cutoff
+        ORDER BY s.id, t.id
+        """)
+    List<TutorAllocation> findEligibleForInactivityReminder(
+        @Param("cutoff") Instant cutoff,
+        @Param("studentRole") UserRole studentRole);
 
     @Query("""
         SELECT ta FROM TutorAllocation ta
