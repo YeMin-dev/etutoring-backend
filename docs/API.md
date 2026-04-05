@@ -69,9 +69,12 @@ Success response:
   "expiresInSeconds": 3600,
   "id": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
   "username": "student1",
-  "role": "STUDENT"
+  "role": "STUDENT",
+  "previousLoginAt": null
 }
 ```
+
+- `previousLoginAt` is always `null` on signup (first session token).
 
 Common errors:
 
@@ -104,9 +107,12 @@ Success response:
   "expiresInSeconds": 3600,
   "id": "2a52bab9-2c1f-49b9-bd6c-7b6e775724cd",
   "username": "student1",
-  "role": "STUDENT"
+  "role": "STUDENT",
+  "previousLoginAt": "15/03/2026 14:30"
 }
 ```
+
+- `previousLoginAt`: **Instant** of the last successful login **before** this one (same `dd/MM/yyyy HH:mm` formatting as other instants, in `app.default-time-zone`). **`null`** means there was no prior login (show a first-time welcome). After this response, the server stores the current login time as the new last login.
 
 Common errors:
 
