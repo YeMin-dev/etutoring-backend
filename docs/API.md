@@ -1268,11 +1268,64 @@ Response: raw bytes with `Content-Type` and `Content-Disposition: attachment`.
 
 ---
 
+## PageViewController (Analytics ingest)
+
+Base path: `/api/analytics`
+
+Records one page view per request for usage reporting (school scope: path, user, browser label).
+
+### POST `/api/analytics/page-views`
+
+- Auth: STUDENT, TUTOR, or ADMIN (JWT required)
+- Status: `204 No Content`
+- Content-Type: `application/json`
+
+Body:
+
+```json
+{ "pagePath": "/assignments" }
+```
+
+- `pagePath` (required): Logical route or screen id; leading `/` is added if missing. Max 255 chars.
+
+The server stores `userId` from the JWT, `viewedAt` as now, and a short **browser** label derived from the `User-Agent` header (`Chrome`, `Edge`, `Firefox`, `Safari`, or `Other`).
+
+Common errors: `400` validation, `401`, `404` if user record missing.
+
+---
+
 ## InteractionReportController (Reports)
 
 Base path: `/api/admin/reports`
 
-Reports for platform usage and interaction; currently only exposes an inactive users report.
+Reports for platform usage and interaction (inactive users, page-view aggregates).
+
+### GET `/api/admin/reports/usage-summary`
+
+Aggregates page views in the date range (inclusive `from`, inclusive `to`), interpreted in **`app.default-time-zone`**.
+
+- Auth: ADMIN
+- Status: `200 OK`
+
+Query params (required):
+
+- `from` — ISO date (e.g. `2026-01-01`)
+- `to` — ISO date (e.g. `2026-01-31`)
+
+Max range: **366** days. Response:
+
+```json
+{
+  "topPages": [{ "pagePath": "/assignments", "viewCount": 42 }],
+  "topUsers": [
+    { "userId": "…", "username": "student1", "email": "…", "viewCount": 30 }
+  ],
+  "browsers": [{ "browser": "Chrome", "viewCount": 100 }]
+```
+
+Up to **50** rows per list, ordered by count descending. Empty lists if no data.
+
+Common errors: `400 INVALID_RANGE`, `401`, `403`.
 
 ### GET `/api/admin/reports/inactive-users`
 
@@ -1328,6 +1381,8 @@ Common errors:
 
 ## Global Error Codes (Current)
 
+- `INVALID_RANGE` -> `400` (usage-summary: bad or too-wide date range)
+- `INVALID_PAGE_PATH` -> `400` (page-views: blank or too long path)
 - `VALIDATION_ERROR` -> `400`
 - `DATA_INTEGRITY_ERROR` -> `400`
 - `INVALID_STUDENT` -> `400` (allocation: user is not a student)
