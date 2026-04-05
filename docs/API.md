@@ -721,6 +721,7 @@ Success response:
   "mode": "VIRTUAL",
   "location": null,
   "link": "https://meet.example.com/abc",
+  "virtualPlatform": "GOOGLE_MEET",
   "description": "Math revision",
   "createdDate": "04/03/2026 09:20",
   "updatedDate": null
@@ -749,11 +750,15 @@ Request body:
   "mode": "VIRTUAL",
   "location": null,
   "link": "https://meet.example.com/abc",
+  "virtualPlatform": "GOOGLE_MEET",
   "description": "Math revision"
 }
 ```
 
-- `studentUserId`, `startDate`, `endDate`, `mode` are required. `mode` must be `IN_PERSON` or `VIRTUAL`. `location`, `link`, `description` are optional.
+- `studentUserId`, `startDate`, `endDate`, `mode` are required. `mode` must be `IN_PERSON` or `VIRTUAL`.
+- **In person (`IN_PERSON`):** `location` is required (non-blank after trim). Do not send `link` or `virtualPlatform` (or send them omitted / null only).
+- **Virtual (`VIRTUAL`):** `link` is required (non-blank, must start with `http://` or `https://`). `virtualPlatform` is required. Allowed values: `ZOOM`, `MICROSOFT_TEAMS`, `GOOGLE_MEET`, `OTHER`. Do not send a non-blank `location`.
+- `description` is optional for both modes.
 
 Success response: same shape as `GET /api/tutor/meetings/{id}`.
 
@@ -762,6 +767,11 @@ Common errors:
 - `400 VALIDATION_ERROR`
 - `400 ONLY_TUTORS_CAN_ARRANGE` (non-tutor user attempts to create)
 - `400 INVALID_SCHEDULE` (endDate before startDate)
+- `400 INVALID_MEETING_LOCATION` (in-person without a usable location)
+- `400 INVALID_MEETING_IN_PERSON` (in-person request includes link or platform)
+- `400 INVALID_MEETING_LINK` (virtual without a valid http(s) link)
+- `400 INVALID_MEETING_PLATFORM` (virtual without `virtualPlatform`)
+- `400 INVALID_MEETING_VIRTUAL` (virtual request includes a non-blank location)
 - `400 MEETING_NOT_WITHIN_ALLOCATION` (meeting window must fall inside an allocation slot for this tutor–student pair)
 - `400 MEETING_OVERLAP` (tutor already has a meeting in this time range)
 - `400 INVALID_STUDENT` (user is not a student)
@@ -786,11 +796,13 @@ Request body (all optional):
   "mode": "IN_PERSON",
   "location": "Room 101",
   "link": null,
+  "virtualPlatform": null,
   "description": "Updated description"
 }
 ```
 
 - If both `startDate` and `endDate` are present, `endDate` must be ≥ `startDate`.
+- After merging omitted fields with the existing meeting, the same mode rules as **POST** apply (in-person: location required, no link/platform; virtual: http(s) link + `virtualPlatform`, no location).
 
 Success response: same shape as `GET /api/tutor/meetings/{id}`.
 
@@ -798,6 +810,7 @@ Common errors:
 
 - `400 VALIDATION_ERROR`
 - `400 INVALID_SCHEDULE` (endDate before startDate after update)
+- `400 INVALID_MEETING_LOCATION` / `INVALID_MEETING_IN_PERSON` / `INVALID_MEETING_LINK` / `INVALID_MEETING_PLATFORM` / `INVALID_MEETING_VIRTUAL` (same semantics as create)
 - `400 MEETING_NOT_WITHIN_ALLOCATION` (meeting window must fall inside an allocation slot for this tutor–student pair)
 - `400 MEETING_OVERLAP` (tutor already has another meeting in this time range)
 - `404 MEETING_NOT_FOUND`
@@ -1404,6 +1417,11 @@ Common errors:
 - `ONLY_TUTORS_CAN_ARRANGE` -> `400` (meetings: only tutors can create meetings)
 - `MEETING_NOT_WITHIN_ALLOCATION` -> `400` (meetings: meeting must fall within an allocation slot for this tutor–student pair)
 - `MEETING_OVERLAP` -> `400` (meetings: tutor already has a meeting in this time range)
+- `INVALID_MEETING_LOCATION` -> `400` (meetings: in-person requires non-blank location)
+- `INVALID_MEETING_IN_PERSON` -> `400` (meetings: in-person must not include link or virtual platform)
+- `INVALID_MEETING_LINK` -> `400` (meetings: virtual requires http(s) invitation link)
+- `INVALID_MEETING_PLATFORM` -> `400` (meetings: virtual requires `virtualPlatform`)
+- `INVALID_MEETING_VIRTUAL` -> `400` (meetings: virtual must not include physical location)
 - `ALLOCATION_NOT_FOUND` -> `404`
 - `CONVERSATION_NOT_FOUND` -> `404`
 - `NOT_PARTICIPANT` -> `403` (conversations: not the student or tutor of the allocation/conversation)
