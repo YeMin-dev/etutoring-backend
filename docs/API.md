@@ -1398,6 +1398,21 @@ Common errors:
 
 ---
 
+## Scheduled jobs (operations, not HTTP)
+
+These run inside the Spring Boot process; there is no public REST endpoint for them.
+
+### 28-day student inactivity warning emails
+
+- **Purpose:** If a **student** has no recorded activity for at least **`app.inactivity-reminder.threshold-days`** (default **28**), the system sends a warning email to the **student** and to each **allocated tutor** with an **active, current** tutor allocation (same notion of “active” as elsewhere: `ended_date` null and `schedule_end` null or in the future).
+- **Activity baseline:** Same as the inactive-users report: `coalesce(last_interaction_date, created_date)` on the user row. In the current codebase, `last_interaction_date` is updated on signup, login, and certain blog actions—not on every API call (e.g. messaging or assignments). Align product wording with that definition or extend touch points later.
+- **Schedule:** Cron `app.inactivity-reminder.cron` (default `0 0 8 * * *` — daily 08:00) in zone `app.default-time-zone`.
+- **Enable/disable:** `app.inactivity-reminder.enabled` (default `true`; tests typically set `false`).
+- **Audit trail:** Each attempt is stored in table **`inactivity_reminder_log`**: `student_user_id`, `tutor_user_id`, `activity_baseline_at`, `status` (`PENDING`, `SENT`, `PARTIAL`, `FAILED`), optional `student_sent_at` / `tutor_sent_at`, and error text if a send failed. **Idempotency:** unique on `(student_user_id, tutor_user_id, activity_baseline_at)` so the same inactivity episode is not emailed twice for that pair; after the student interacts again, the baseline changes and a new episode can generate a new row later.
+- **Mail:** Uses synchronous send for this job so success/failure can be recorded. Requires a configured `spring.mail.from` and working SMTP (same as other emails).
+
+---
+
 ## Global Error Codes (Current)
 
 - `INVALID_RANGE` -> `400` (usage-summary: bad or too-wide date range)
