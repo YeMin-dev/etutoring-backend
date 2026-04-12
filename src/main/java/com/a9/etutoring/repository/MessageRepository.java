@@ -2,6 +2,7 @@ package com.a9.etutoring.repository;
 
 import com.a9.etutoring.domain.model.Message;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,4 +24,19 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
         @Param("senderId") UUID senderId,
         @Param("readDate") Instant readDate
     );
+
+    @Query("SELECT COUNT(m) FROM Message m WHERE m.createdDate >= :from AND m.createdDate < :toExclusive")
+    long countByCreatedDateBetween(
+        @Param("from") Instant from,
+        @Param("toExclusive") Instant toExclusive);
+
+    @Query("""
+        SELECT m.conversation.tutor.id, COUNT(m)
+        FROM Message m
+        WHERE m.createdDate >= :from AND m.createdDate < :toExclusive
+        GROUP BY m.conversation.tutor.id
+        """)
+    List<Object[]> countMessagesGroupedByTutorBetween(
+        @Param("from") Instant from,
+        @Param("toExclusive") Instant toExclusive);
 }
