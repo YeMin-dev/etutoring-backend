@@ -1346,6 +1346,44 @@ Up to **50** rows per list, ordered by count descending. Empty lists if no data.
 
 Common errors: `400 INVALID_RANGE`, `401`, `403`.
 
+### GET `/api/admin/reports/messaging-summary`
+
+Message volume for a rolling time window ending **now** (UTC instants), plus one row per **personal tutor** (any user with at least one **active, current** tutor allocation: `ended_date` null and `schedule_end` null or in the future).
+
+- Auth: ADMIN
+- Status: `200 OK`
+
+Query params:
+
+- `windowDays` (optional, default `7`): Length of the window in days; must be between **1** and **90** inclusive. Messages counted with `windowStart <= created_date < windowEndExclusive` where `windowEndExclusive` is the server time when the report is generated and `windowStart = windowEndExclusive - windowDays`.
+
+Success response:
+
+```json
+{
+  "windowStart": "2026-03-22T10:00:00Z",
+  "windowEndExclusive": "2026-03-29T10:00:00Z",
+  "windowDays": 7,
+  "totalMessagesInWindow": 42,
+  "tutors": [
+    {
+      "tutorUserId": "3b63cbc0-3d2g-5a0c-ce7d-8c7f886835de",
+      "username": "tutor1",
+      "email": "tutor1@example.com",
+      "firstName": "Tu",
+      "lastName": "Tor",
+      "messageCount": 14,
+      "averageMessagesPerDay": 2.0
+    }
+  ]
+}
+```
+
+- **`totalMessagesInWindow`:** All messages in any conversation in the window (not only those tied to listed tutors).
+- **`tutors`:** Every distinct tutor with an active current allocation, sorted by username. **`messageCount`** is messages in conversations where that user is `tutor_user_id` within the same window. **`averageMessagesPerDay`** is `messageCount / windowDays`, rounded half-up to **2** decimal places (including `0.00` when there are no messages).
+
+Common errors: `400 INVALID_REPORT_RANGE` (bad `windowDays`), `401`, `403`.
+
 ### GET `/api/admin/reports/inactive-users`
 
 Generate a report of inactive students and tutors over a time window.
@@ -1416,6 +1454,7 @@ These run inside the Spring Boot process; there is no public REST endpoint for t
 ## Global Error Codes (Current)
 
 - `INVALID_RANGE` -> `400` (usage-summary: bad or too-wide date range)
+- `INVALID_REPORT_RANGE` -> `400` (inactive-users: days not 7 or 28; messaging-summary: `windowDays` not 1–90)
 - `INVALID_PAGE_PATH` -> `400` (page-views: blank or too long path)
 - `VALIDATION_ERROR` -> `400`
 - `DATA_INTEGRITY_ERROR` -> `400`

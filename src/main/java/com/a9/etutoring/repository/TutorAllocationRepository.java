@@ -56,6 +56,14 @@ public interface TutorAllocationRepository extends JpaRepository<TutorAllocation
         @Param("studentRole") UserRole studentRole);
 
     @Query("""
+        SELECT DISTINCT ta.tutor.id FROM TutorAllocation ta
+        WHERE ta.endedDate IS NULL
+        AND (ta.scheduleEnd IS NULL OR ta.scheduleEnd >= CURRENT_TIMESTAMP)
+        AND ta.tutor.deletedDate IS NULL
+        """)
+    List<UUID> findDistinctActiveTutorUserIds();
+
+    @Query("""
         SELECT ta FROM TutorAllocation ta
         WHERE ta.tutor.id = :tutorId AND ta.endedDate IS NULL
         AND ta.scheduleStart IS NOT NULL AND ta.scheduleEnd IS NOT NULL
