@@ -56,6 +56,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<UserResponse> listStudentsWithoutActiveCurrentTutor(Pageable pageable) {
+        Page<User> page = userRepository.findStudentsWithoutActiveCurrentTutorAllocation(UserRole.STUDENT, pageable);
+        List<UserResponse> content = page.getContent().stream().map(this::toResponse).toList();
+        return new PageImpl<>(content, page.getPageable(), page.getTotalElements());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<UserResponse> listTutors(Pageable pageable) {
         Page<User> page = userRepository.findAllByDeletedDateIsNullAndRole(UserRole.TUTOR, pageable);
         List<UserResponse> content = page.getContent().stream().map(this::toResponse).toList();

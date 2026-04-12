@@ -1384,6 +1384,22 @@ Success response:
 
 Common errors: `400 INVALID_REPORT_RANGE` (bad `windowDays`), `401`, `403`.
 
+### GET `/api/admin/reports/students-without-tutor`
+
+Paged list of **students** (`role = STUDENT`, not soft-deleted) who have **no active current personal tutor slot**: there is no `tutor_allocation` row for that student with `ended_date` null **and** (`schedule_end` null **or** `schedule_end` in the future). Same notion of “active current” as elsewhere (e.g. student allocated-tutors list). Past ended allocations or expired schedules do **not** count.
+
+- Auth: ADMIN
+- Status: `200 OK`
+
+Query params:
+
+- `page` (optional, default `0`): 0-based page index.
+- `size` (optional, default `20`, max `100`): Page size.
+
+Success response: Spring **page** JSON (same shape as `GET /api/admin/users/students`): `content` array of `UserResponse`, `totalElements`, `totalPages`, `number`, `size`, etc.
+
+Common errors: `401`, `403`.
+
 ### GET `/api/admin/reports/inactive-users`
 
 Generate a report of inactive students and tutors over a time window.
