@@ -15,6 +15,12 @@ public interface UserService {
 
     Page<UserResponse> listStudents(Pageable pageable);
 
+    /**
+     * Students with role STUDENT, not soft-deleted, and no active current tutor allocation
+     * ({@code ended_date} null and {@code schedule_end} null or in the future).
+     */
+    Page<UserResponse> listStudentsWithoutActiveCurrentTutor(Pageable pageable);
+
     Page<UserResponse> listTutors(Pageable pageable);
 
     UserResponse create(UserCreateRequest request);

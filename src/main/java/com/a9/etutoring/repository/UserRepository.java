@@ -39,6 +39,28 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     List<User> findAllByIdInAndDeletedDateIsNull(Collection<UUID> ids);
 
+    @Query(
+        value = """
+            SELECT u FROM User u
+            WHERE u.deletedDate IS NULL AND u.role = :role
+            AND NOT EXISTS (
+                SELECT 1 FROM TutorAllocation ta
+                WHERE ta.student.id = u.id AND ta.endedDate IS NULL
+                AND (ta.scheduleEnd IS NULL OR ta.scheduleEnd >= CURRENT_TIMESTAMP)
+            )
+            """,
+        countQuery = """
+            SELECT COUNT(u) FROM User u
+            WHERE u.deletedDate IS NULL AND u.role = :role
+            AND NOT EXISTS (
+                SELECT 1 FROM TutorAllocation ta
+                WHERE ta.student.id = u.id AND ta.endedDate IS NULL
+                AND (ta.scheduleEnd IS NULL OR ta.scheduleEnd >= CURRENT_TIMESTAMP)
+            )
+            """
+    )
+    Page<User> findStudentsWithoutActiveCurrentTutorAllocation(@Param("role") UserRole role, Pageable pageable);
+
         @Query(
                 """
                 select u
